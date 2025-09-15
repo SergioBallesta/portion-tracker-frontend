@@ -36,7 +36,8 @@ const PortionTracker = () => {
   const [consumedFoods, setConsumedFoods] = useState({});
 
   // URL del backend
- fetch("/api/health")
+	const API_BASE = "/api"; // gracias al proxy, no necesitas dominios aqui
+
 
 
   // Grupos de alimentos
@@ -53,26 +54,28 @@ const PortionTracker = () => {
     checkBackendHealth();
   }, []);
 
-  const checkBackendHealth = async () => {
-    try {
-      setError('Conectando con servidor...');
-      const response = await fetch(`${BACKEND_URL}/health`);
-      const data = await response.json();
-      
-      if (response.ok) {
-        setBackendStatus('connected');
-        setError('');
-        console.log('Backend conectado:', data);
-      } else {
-        setBackendStatus('error');
-        setError('Error de servidor');
-      }
-    } catch (err) {
-      setBackendStatus('offline');
-      setError('Servidor offline - usando modo demo');
-      console.warn('Backend offline, usando datos mock');
+  // Verificar estado del backend
+const checkBackendHealth = async () => {
+  try {
+    setError('Conectando con servidor...');
+    const response = await fetch(`${API_BASE}/health`);
+    const data = await response.json();
+
+    if (response.ok) {
+      setBackendStatus('connected');
+      setError('');
+      console.log('Backend conectado:', data);
+    } else {
+      setBackendStatus('error');
+      setError('Error de servidor');
     }
-  };
+  } catch (err) {
+    setBackendStatus('offline');
+    setError('Servidor offline - usando modo demo');
+    console.warn('Backend offline, usando datos mock');
+  }
+};
+
   
 	  const startEditingFood = (food) => {
 	  setEditingFood(food);
@@ -102,66 +105,40 @@ const PortionTracker = () => {
 	};
 
   // Buscar alimentos usando backend real o datos mock
-  const searchFoodsAPI = async (term) => {
-    if (!term || term.length < 2) return;
+  // Buscar alimentos usando backend real o datos mock
+const searchFoodsAPI = async (term) => {
+  if (!term || term.length < 2) return;
 
-    setIsSearching(true);
-    setError('');
+  setIsSearching(true);
+  setError('');
 
-    try {
-      if (backendStatus === 'connected') {
-        // Usar backend real
-        console.log(`Buscando en FatSecret: "${term}"`);
-        
-        const response = await fetch(`${BACKEND_URL}/search`, {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify({
-            query: term,
-            maxResults: 15
-          })
-        });
+  try {
+    if (backendStatus === 'connected') {
+      console.log(`Buscando en FatSecret: "${term}"`);
 
-        if (response.ok) {
-          const data = await response.json();
-          console.log('Respuesta de FatSecret:', data);
-          
-          if (data.foods && data.foods.food) {
-            const foods = Array.isArray(data.foods.food) ? data.foods.food : [data.foods.food];
-            const processedFoods = foods.map(food => ({
-              id: `fs_${food.id}`,
-              name: food.name,
-              calories: food.calories || null,
-              protein: food.protein || null,
-              carbs: food.carbs || null,
-              fat: food.fat || null,
-              brand: food.brand || '',
-              type: food.type || 'FatSecret',
-              description: food.description || '',
-              isFromAPI: true
-            }));
-            
-            setSearchResults(processedFoods);
-            console.log(`? ${processedFoods.length} alimentos encontrados en FatSecret`);
-          } else {
-            setSearchResults([]);
-            console.log('No se encontraron resultados en FatSecret');
-          }
-        } else {
-          const errorData = await response.json();
-          console.error('? Error en busqueda:', errorData);
-		setError('Error en busqueda FatSecret');
-        }
+      const response = await fetch(`${API_BASE}/search`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ query: term, maxResults: 15 })
+      });
+
+      if (response.ok) {
+        const data = await response.json();
+        // ... (tu mismo procesamiento)
+      } else {
+        const errorData = await response.json().catch(() => ({}));
+        console.error('Error en busqueda:', errorData);
+        setError('Error en busqueda FatSecret');
       }
-    } catch (err) {
-      console.error('Error de busqueda:', err);
-      setError('Error de conexion - usando datos locales');
-    } finally {
-      setIsSearching(false);
     }
-  };
+  } catch (err) {
+    console.error('Error de conexion:', err);
+    setError('Error de conexion - usando datos locales');
+  } finally {
+    setIsSearching(false);
+  }
+};
+
 const startEditingConsumption = (food, mealIndex, groupName) => {
   setEditingConsumption({ food, mealIndex, groupName });
   setNewConsumedGrams(food.actualGrams || food.gramsPerPortion || food.standardPortionGrams);
@@ -189,41 +166,28 @@ const saveEditedConsumption = () => {
   }
 };
   // Obtener detalles nutricionales adicionales si es necesario
-  const getFoodDetails = async (foodId) => {
-    if (backendStatus !== 'connected' || !foodId.startsWith('fs_')) {
-      return null;
-    }
+  // Obtener detalles nutricionales
+const getFoodDetails = async (foodId) => {
+  if (backendStatus !== 'connected' || !foodId.startsWith('fs_')) return null;
 
-    try {
-      const cleanId = foodId.replace('fs_', '');
-      const response = await fetch(`${BACKEND_URL}/food/${cleanId}`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        }
-      });
+  try {
+    const cleanId = foodId.replace('fs_', '');
+    const response = await fetch(`${API_BASE}/food/${cleanId}`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' }
+    });
 
-      if (response.ok) {
-        const data = await response.json();
-        console.log('Detalles nutricionales:', data);
-        return data;
-      }
-    } catch (error) {
-      console.error('Error obteniendo detalles:', error);
+    if (response.ok) {
+      const data = await response.json();
+      console.log('Detalles nutricionales:', data);
+      return data;
     }
-    return null;
-  };
+  } catch (error) {
+    console.error('Error obteniendo detalles:', error);
+  }
+  return null;
+};
 
-  useEffect(() => {
-    if (searchTerm && searchTerm.length >= 2) {
-      const timeoutId = setTimeout(() => {
-        searchFoodsAPI(searchTerm);
-      }, 500);
-      return () => clearTimeout(timeoutId);
-    } else {
-      setSearchResults([]);
-    }
-  }, [searchTerm, backendStatus]);
 
   // Cargar datos del localStorage
   useEffect(() => {
