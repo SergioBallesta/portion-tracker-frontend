@@ -833,7 +833,7 @@ const saveEditedConsumption = () => {
               <div className="personal-foods-list">
                 {Object.values(personalFoods).map(food => (
                   <div 
-                    {searchResults.map((food, index) => ( <div key={food.id || `${food.name}-${index}`} /* ... */> {/* ... */}  </div> ))}
+                    key={food.id}
                     onClick={() => addFromPersonalFoods(food)}
                     className="personal-food-item"
                   >
@@ -1122,7 +1122,7 @@ const saveEditedConsumption = () => {
                 const isPersonalFood = personalFoods[food.id];
                 return (
                   <div 
-                    {searchResults.map((food, index) => ( <div key={food.id || `${food.name}-${index}`} /* ... */> {/* ... */}  </div> ))}
+                    key={food.id}
                     onClick={() => handleFoodSelect(food)}
                     className="result-item"
                   >
@@ -1185,7 +1185,7 @@ const saveEditedConsumption = () => {
               <div key={group} style={{ marginBottom: '16px' }}>
                 <div className="group-header-consumed">
                   {foods.map((food) => (
-  <div {searchResults.map((food, index) => ( <div key={food.id || `${food.name}-${index}`} /* ... */> {/* ... */}  </div> ))} className="consumed-item">
+  <div key={food.id} className="consumed-item">
     <div className="consumed-info">
       <div className="consumed-name">
         {food.name}
