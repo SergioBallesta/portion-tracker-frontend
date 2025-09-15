@@ -36,8 +36,7 @@ const PortionTracker = () => {
   const [consumedFoods, setConsumedFoods] = useState({});
 
   // URL del backend
-  const API = import.meta.env.VITE_API_URL;
-fetch(`${API}/api/health`).then(r => r.json()).then(console.log);
+ fetch("/api/health")
 
 
   // Grupos de alimentos
