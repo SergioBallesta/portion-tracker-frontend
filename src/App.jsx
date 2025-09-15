@@ -53,6 +53,18 @@ const PortionTracker = () => {
   useEffect(() => {
     checkBackendHealth();
   }, []);
+  
+  useEffect(() => {
+  const timeoutId = setTimeout(() => {
+    if (searchTerm.length >= 2) {
+      searchFoodsAPI(searchTerm);
+    } else {
+      setSearchResults([]);
+    }
+  }, 500); // Debounce de 500ms
+
+  return () => clearTimeout(timeoutId);
+}, [searchTerm]);
 
   // Verificar estado del backend
 const checkBackendHealth = async () => {
