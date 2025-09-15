@@ -1,8 +1,37 @@
 import React, { useState, useEffect } from 'react';
-import { Plus, Search, Trash2, Settings, Utensils, AlertCircle, Clock, Target, Edit3, Save, X, Scale, Activity, BarChart3 } from 'lucide-react';
+import { Plus, Search, Trash2, Settings, Utensils, AlertCircle, Clock, Target, Edit3, Save, X, Scale, Activity, BarChart3, Download, Upload } from 'lucide-react';
 import './App.css';
 
 const PortionTracker = () => {
+  // CONSTANTES PARA KEYS DE LOCALSTORAGE
+  const STORAGE_KEYS = {
+    PERSONAL_FOODS: 'personalFoods',
+    MEAL_CONFIG: 'mealConfig', 
+    CONSUMED_FOODS: 'consumedFoods',
+    PORTION_DISTRIBUTION: 'portionDistribution',
+    CURRENT_MEAL: 'currentMeal',
+    SEARCH_HISTORY: 'searchHistory'
+  };
+
+  // FUNCIONES HELPER PARA PERSISTENCIA
+  const saveToStorage = (key, data) => {
+    try {
+      localStorage.setItem(key, JSON.stringify(data));
+    } catch (error) {
+      console.error('Error guardando en localStorage:', error);
+    }
+  };
+
+  const loadFromStorage = (key, defaultValue = null) => {
+    try {
+      const stored = localStorage.getItem(key);
+      return stored ? JSON.parse(stored) : defaultValue;
+    } catch (error) {
+      console.error('Error cargando de localStorage:', error);
+      return defaultValue;
+    }
+  };
+
   const [showEditConsumption, setShowEditConsumption] = useState(false);
   const [editingConsumption, setEditingConsumption] = useState(null);
   const [newConsumedGrams, setNewConsumedGrams] = useState(100);
@@ -25,7 +54,7 @@ const PortionTracker = () => {
   const [personalFoods, setPersonalFoods] = useState({});
   const [showPersonalFoods, setShowPersonalFoods] = useState(false);
 
-// Configuracion de comidas y porciones
+  // Configuracion de comidas y porciones
   const [mealCount, setMealCount] = useState(3);
   const [mealNames, setMealNames] = useState(['Desayuno', 'Almuerzo', 'Cena']);
   const [portionDistribution, setPortionDistribution] = useState({});
@@ -35,19 +64,76 @@ const PortionTracker = () => {
   // Registro de alimentos consumidos
   const [consumedFoods, setConsumedFoods] = useState({});
 
+  // NUEVO: Historial de busquedas
+  const [searchHistory, setSearchHistory] = useState([]);
+
   // URL del backend
-	const API_BASE = "/api"; // gracias al proxy, no necesitas dominios aqui
-
-
+  const API_BASE = "/api";
 
   // Grupos de alimentos
   const foodGroups = {
-  carbohidratos: { name: 'Carbohidratos', color: 'bg-blue-100 border-blue-300 text-blue-800', icon: 'C', defaultGrams: 30 },
-  proteinas: { name: 'Proteinas', color: 'bg-indigo-100 border-indigo-300 text-indigo-800', icon: 'P', defaultGrams: 100 },  protegrasa: { name: 'Protegrasa', color: 'bg-purple-100 border-purple-300 text-purple-800', icon: 'PG', defaultGrams: 30 },
-  grasas: { name: 'Grasas', color: 'bg-cyan-100 border-cyan-300 text-cyan-800', icon: 'G', defaultGrams: 10 },
-  frutas: { name: 'Frutas', color: 'bg-sky-100 border-sky-300 text-sky-800', icon: 'F', defaultGrams: 150 },
-  lacteos: { name: 'Lacteos', color: 'bg-teal-100 border-teal-300 text-teal-800', icon: 'L', defaultGrams: 250 }
-};
+    carbohidratos: { name: 'Carbohidratos', color: 'bg-blue-100 border-blue-300 text-blue-800', icon: 'C', defaultGrams: 30 },
+    proteinas: { name: 'Proteinas', color: 'bg-indigo-100 border-indigo-300 text-indigo-800', icon: 'P', defaultGrams: 100 },  
+    protegrasa: { name: 'Protegrasa', color: 'bg-purple-100 border-purple-300 text-purple-800', icon: 'PG', defaultGrams: 30 },
+    grasas: { name: 'Grasas', color: 'bg-cyan-100 border-cyan-300 text-cyan-800', icon: 'G', defaultGrams: 10 },
+    frutas: { name: 'Frutas', color: 'bg-sky-100 border-sky-300 text-sky-800', icon: 'F', defaultGrams: 150 },
+    lacteos: { name: 'Lacteos', color: 'bg-teal-100 border-teal-300 text-teal-800', icon: 'L', defaultGrams: 250 }
+  };
+
+  // CARGAR DATOS INICIALES CON SISTEMA COMPLETO
+  useEffect(() => {
+    // Cargar configuracion de comidas
+    const savedConfig = loadFromStorage(STORAGE_KEYS.MEAL_CONFIG);
+    if (savedConfig) {
+      setMealNames(savedConfig.mealNames || ['Desayuno', 'Almuerzo', 'Cena']);
+      setMealCount(savedConfig.mealCount || 3);
+    }
+
+    // Cargar alimentos personales
+    const savedPersonalFoods = loadFromStorage(STORAGE_KEYS.PERSONAL_FOODS, {});
+    setPersonalFoods(savedPersonalFoods);
+
+    // Cargar distribucion de porciones
+    const savedPortionDistribution = loadFromStorage(STORAGE_KEYS.PORTION_DISTRIBUTION);
+    if (savedPortionDistribution) {
+      setPortionDistribution(savedPortionDistribution);
+    }
+
+    // Cargar alimentos consumidos del dia actual
+    const today = new Date().toDateString();
+    const savedConsumedFoods = loadFromStorage(`${STORAGE_KEYS.CONSUMED_FOODS}_${today}`, {});
+    setConsumedFoods(savedConsumedFoods);
+
+    // Cargar comida actual
+    const savedCurrentMeal = loadFromStorage(STORAGE_KEYS.CURRENT_MEAL, 0);
+    setCurrentMeal(savedCurrentMeal);
+
+    // Cargar historial de busquedas
+    const savedSearchHistory = loadFromStorage(STORAGE_KEYS.SEARCH_HISTORY, []);
+    setSearchHistory(savedSearchHistory);
+
+    // Limpiar datos antiguos al cargar
+    clearOldData();
+  }, []);
+
+  // USEEFFECTS PARA GUARDAR CAMBIOS AUTOMATICAMENTE
+  useEffect(() => {
+    const config = { mealNames, mealCount };
+    saveToStorage(STORAGE_KEYS.MEAL_CONFIG, config);
+  }, [mealNames, mealCount]);
+
+  useEffect(() => {
+    saveToStorage(STORAGE_KEYS.PORTION_DISTRIBUTION, portionDistribution);
+  }, [portionDistribution]);
+
+  useEffect(() => {
+    const today = new Date().toDateString();
+    saveToStorage(`${STORAGE_KEYS.CONSUMED_FOODS}_${today}`, consumedFoods);
+  }, [consumedFoods]);
+
+  useEffect(() => {
+    saveToStorage(STORAGE_KEYS.CURRENT_MEAL, currentMeal);
+  }, [currentMeal]);
 
   // Verificar estado del backend al cargar
   useEffect(() => {
@@ -55,255 +141,320 @@ const PortionTracker = () => {
   }, []);
   
   useEffect(() => {
-  const timeoutId = setTimeout(() => {
-    if (searchTerm.length >= 2) {
-      searchFoodsAPI(searchTerm);
-    } else {
-      setSearchResults([]);
-    }
-  }, 500); // Debounce de 500ms
+    const timeoutId = setTimeout(() => {
+      if (searchTerm.length >= 2) {
+        console.log('Ejecutando busqueda automatica para:', searchTerm);
+        searchFoodsAPI(searchTerm);
+      } else {
+        console.log('Limpiando resultados - termino muy corto:', searchTerm);
+        setSearchResults([]);
+        setIsSearching(false);
+      }
+    }, 500);
 
-  return () => clearTimeout(timeoutId);
-}, [searchTerm]);
+    return () => {
+      console.log('Cancelando timeout de busqueda');
+      clearTimeout(timeoutId);
+    };
+  }, [searchTerm, backendStatus]);
+
+  // NUEVAS FUNCIONES DE GESTION DE DATOS
+  const saveSearchToHistory = (searchTerm, results) => {
+    if (results.length > 0) {
+      const newHistory = [
+        { term: searchTerm, timestamp: Date.now(), resultCount: results.length },
+        ...searchHistory.filter(h => h.term !== searchTerm).slice(0, 9)
+      ];
+      setSearchHistory(newHistory);
+      saveToStorage(STORAGE_KEYS.SEARCH_HISTORY, newHistory);
+    }
+  };
+
+  const clearOldData = () => {
+    const today = new Date().toDateString();
+    const keys = Object.keys(localStorage);
+    
+    keys.forEach(key => {
+      if (key.startsWith(STORAGE_KEYS.CONSUMED_FOODS) && !key.includes(today)) {
+        const dateStr = key.replace(STORAGE_KEYS.CONSUMED_FOODS + '_', '');
+        const date = new Date(dateStr);
+        const daysDiff = (new Date(today) - date) / (1000 * 60 * 60 * 24);
+        
+        if (daysDiff > 7) {
+          localStorage.removeItem(key);
+        }
+      }
+    });
+  };
+
+  const exportData = () => {
+    const today = new Date().toDateString();
+    const exportData = {
+      personalFoods,
+      mealConfig: { mealNames, mealCount },
+      portionDistribution,
+      consumedFoods,
+      searchHistory,
+      exportDate: today,
+      version: '1.0'
+    };
+    
+    const dataStr = JSON.stringify(exportData, null, 2);
+    const dataBlob = new Blob([dataStr], { type: 'application/json' });
+    const url = URL.createObjectURL(dataBlob);
+    
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = `portion-tracker-backup-${today.replace(/\s/g, '-')}.json`;
+    link.click();
+    
+    URL.revokeObjectURL(url);
+  };
+
+  const importData = (file) => {
+    const reader = new FileReader();
+    reader.onload = (e) => {
+      try {
+        const importedData = JSON.parse(e.target.result);
+        
+        if (importedData.personalFoods) {
+          setPersonalFoods(importedData.personalFoods);
+          saveToStorage(STORAGE_KEYS.PERSONAL_FOODS, importedData.personalFoods);
+        }
+        
+        if (importedData.mealConfig) {
+          setMealNames(importedData.mealConfig.mealNames);
+          setMealCount(importedData.mealConfig.mealCount);
+        }
+        
+        if (importedData.portionDistribution) {
+          setPortionDistribution(importedData.portionDistribution);
+        }
+        
+        alert('Datos importados correctamente');
+      } catch (error) {
+        alert('Error al importar datos: ' + error.message);
+      }
+    };
+    reader.readAsText(file);
+  };
+
+  const resetTodayData = () => {
+    if (window.confirm('?Seguro que quieres reiniciar los datos de hoy?')) {
+      setConsumedFoods({});
+      setCurrentMeal(0);
+      initializeConsumedFoods();
+    }
+  };
 
   // Verificar estado del backend
-const checkBackendHealth = async () => {
-  try {
-    setError('Conectando con servidor...');
-    const response = await fetch(`${API_BASE}/health`);
-    const data = await response.json();
+  const checkBackendHealth = async () => {
+    try {
+      setError('Conectando con servidor...');
+      const response = await fetch(`${API_BASE}/health`);
+      const data = await response.json();
 
-    if (response.ok) {
-      setBackendStatus('connected');
-      setError('');
-      console.log('Backend conectado:', data);
-    } else {
-      setBackendStatus('error');
-      setError('Error de servidor');
+      if (response.ok) {
+        setBackendStatus('connected');
+        setError('');
+        console.log('Backend conectado:', data);
+      } else {
+        setBackendStatus('error');
+        setError('Error de servidor');
+      }
+    } catch (err) {
+      setBackendStatus('offline');
+      setError('Servidor offline - usando modo demo');
+      console.warn('Backend offline, usando datos mock');
     }
-  } catch (err) {
-    setBackendStatus('offline');
-    setError('Servidor offline - usando modo demo');
-    console.warn('Backend offline, usando datos mock');
-  }
-};
-
-
-
-  
-	  const startEditingFood = (food) => {
-	  setEditingFood(food);
-	  setNewStandardGrams(food.standardPortionGrams);
-	  setShowEditFood(true);
-	};
-
-	const deleteFood = (foodId) => {
-	  const updatedFoods = { ...personalFoods };
-	  delete updatedFoods[foodId];
-	  savePersonalFoods(updatedFoods);
-	};
-
-	const saveEditedFood = () => {
-	  if (editingFood) {
-		const updatedFoods = {
-		  ...personalFoods,
-		  [editingFood.id]: {
-			...editingFood,
-			standardPortionGrams: newStandardGrams
-		  }
-		};
-		savePersonalFoods(updatedFoods);
-		setShowEditFood(false);
-		setEditingFood(null);
-	  }
-	};
-
-  // Buscar alimentos usando backend real o datos mock
-const searchFoodsAPI = async (term) => {
-  if (!term || term.length < 2) {
-    setSearchResults([]);
-    return;
-  }
-
-  console.log(`?? Iniciando busqueda para: "${term}"`);
-  setIsSearching(true);
-  setError('');
-
-  // helper local para numeros tipo "12,3" o "12.3"
-  const toNum = (v) => {
-    if (v == null) return null;
-    const n = parseFloat(String(v).replace(',', '.'));
-    return Number.isNaN(n) ? null : Math.round(n * 10) / 10;
   };
 
-  // normalizador robusto de respuesta
-  const normalizeFoods = (data) => {
-    console.log('?? Datos recibidos para normalizar:', data);
-    let list = [];
-    if (Array.isArray(data)) list = data;
-    else if (Array.isArray(data?.foods)) list = data.foods;
-    else if (Array.isArray(data?.results)) list = data.results;
-    else if (Array.isArray(data?.foods?.food)) list = data.foods.food;
-    else if (data?.foods?.food) list = [data.foods.food];
+  const startEditingFood = (food) => {
+    setEditingFood(food);
+    setNewStandardGrams(food.standardPortionGrams);
+    setShowEditFood(true);
+  };
 
-    const normalized = list.map((f, idx) => {
-      const idRaw = f.id ?? f.food_id ?? f.foodId ?? f.code ?? idx;
-      const name = f.name ?? f.food_name ?? f.description ?? `Alimento ${idx + 1}`;
-      return {
-        id: `fs_${idRaw}`,
-        name,
-        calories: toNum(f.calories ?? f.kcal ?? f.energy_kcal),
-        protein: toNum(f.protein ?? f.proteins ?? f.protein_g),
-        carbs: toNum(f.carbs ?? f.carbohydrates ?? f.carbs_g),
-        fat: toNum(f.fat ?? f.fats ?? f.fat_g),
-        brand: f.brand ?? f.brand_name ?? '',
-        type: 'API',
-        description: f.description ?? '',
-        isFromAPI: true
+  const deleteFood = (foodId) => {
+    const updatedFoods = { ...personalFoods };
+    delete updatedFoods[foodId];
+    savePersonalFoods(updatedFoods);
+  };
+
+  const saveEditedFood = () => {
+    if (editingFood) {
+      const updatedFoods = {
+        ...personalFoods,
+        [editingFood.id]: {
+          ...editingFood,
+          standardPortionGrams: newStandardGrams
+        }
       };
-    });
-
-    console.log(`? ${normalized.length} alimentos normalizados:`, normalized);
-    return normalized;
+      savePersonalFoods(updatedFoods);
+      setShowEditFood(false);
+      setEditingFood(null);
+    }
   };
 
-  try {
-    if (backendStatus === 'connected') {
-      console.log(`?? Realizando peticion a: ${API_BASE}/search`);
+  // MODIFICAR searchFoodsAPI para incluir guardado de historial
+  const searchFoodsAPI = async (term) => {
+    if (!term || term.length < 2) {
+      setSearchResults([]);
+      return;
+    }
 
-      // Intento A: POST /api/search
-      let res = await fetch(`${API_BASE}/search`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ query: term, maxResults: 15 })
+    console.log(`?? Iniciando busqueda para: "${term}"`);
+    setIsSearching(true);
+    setError('');
+
+    const toNum = (v) => {
+      if (v == null) return null;
+      const n = parseFloat(String(v).replace(',', '.'));
+      return Number.isNaN(n) ? null : Math.round(n * 10) / 10;
+    };
+
+    const normalizeFoods = (data) => {
+      console.log('?? Datos recibidos para normalizar:', data);
+      let list = [];
+      if (Array.isArray(data)) list = data;
+      else if (Array.isArray(data?.foods)) list = data.foods;
+      else if (Array.isArray(data?.results)) list = data.results;
+      else if (Array.isArray(data?.foods?.food)) list = data.foods.food;
+      else if (data?.foods?.food) list = [data.foods.food];
+
+      const normalized = list.map((f, idx) => {
+        const idRaw = f.id ?? f.food_id ?? f.foodId ?? f.code ?? idx;
+        const name = f.name ?? f.food_name ?? f.description ?? `Alimento ${idx + 1}`;
+        return {
+          id: `fs_${idRaw}`,
+          name,
+          calories: toNum(f.calories ?? f.kcal ?? f.energy_kcal),
+          protein: toNum(f.protein ?? f.proteins ?? f.protein_g),
+          carbs: toNum(f.carbs ?? f.carbohydrates ?? f.carbs_g),
+          fat: toNum(f.fat ?? f.fats ?? f.fat_g),
+          brand: f.brand ?? f.brand_name ?? '',
+          type: 'API',
+          description: f.description ?? '',
+          isFromAPI: true
+        };
       });
 
-      console.log(`?? Respuesta del servidor: ${res.status} ${res.statusText}`);
+      console.log(`? ${normalized.length} alimentos normalizados:`, normalized);
+      return normalized;
+    };
 
-      // Si tu backend usa GET /api/test-search/:term, probamos fallback
+    try {
+      if (backendStatus === 'connected') {
+        console.log(`?? Realizando peticion a: ${API_BASE}/search`);
+
+        let res = await fetch(`${API_BASE}/search`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ query: term, maxResults: 15 })
+        });
+
+        console.log(`?? Respuesta del servidor: ${res.status} ${res.statusText}`);
+
+        if (res.status === 404 || res.status === 405) {
+          console.log('?? Probando endpoint fallback...');
+          res = await fetch(`${API_BASE}/test-search/${encodeURIComponent(term)}`);
+          console.log(`?? Respuesta fallback: ${res.status} ${res.statusText}`);
+        }
+
+        if (res.ok) {
+          const data = await res.json();
+          console.log('?? Datos recibidos del servidor:', data);
+          const processed = normalizeFoods(data);
+
+          setSearchResults(processed);
+          saveSearchToHistory(term, processed); // NUEVA LINEA
+          console.log(`? ${processed.length} alimentos procesados y guardados en estado`);
+          
+          setTimeout(() => {
+            console.log('?? Estado actual de searchResults:', processed);
+          }, 100);
+        } else {
+          const errorText = await res.text();
+          console.error('? Error en busqueda:', {
+            status: res.status,
+            statusText: res.statusText,
+            body: errorText
+          });
+          setSearchResults([]);
+          setError(`Error en busqueda: ${res.status} ${res.statusText}`);
+        }
+      } else {
+        console.log('?? Backend no conectado, limpiando resultados');
+        setSearchResults([]);
+        setError('Backend no conectado');
+      }
+    } catch (err) {
+      console.error('?? Error de conexion:', err);
+      setSearchResults([]);
+      setError(`Error de conexion: ${err.message}`);
+    } finally {
+      setIsSearching(false);
+      console.log('?? Busqueda finalizada');
+    }
+  };
+
+  const startEditingConsumption = (food, mealIndex, groupName) => {
+    setEditingConsumption({ food, mealIndex, groupName });
+    setNewConsumedGrams(food.actualGrams || food.gramsPerPortion || food.standardPortionGrams);
+    setShowEditConsumption(true);
+  };
+
+  const saveEditedConsumption = () => {
+    if (editingConsumption) {
+      const { food, mealIndex, groupName } = editingConsumption;
+      const newConsumed = { ...consumedFoods };
+      
+      const foodIndex = newConsumed[mealIndex][groupName].findIndex(f => f.id === food.id);
+      if (foodIndex !== -1) {
+        newConsumed[mealIndex][groupName][foodIndex] = {
+          ...food,
+          actualGrams: newConsumedGrams,
+          gramsPerPortion: newConsumedGrams
+        };
+      }
+      
+      setConsumedFoods(newConsumed);
+      setShowEditConsumption(false);
+      setEditingConsumption(null);
+    }
+  };
+
+  const getFoodDetails = async (foodId) => {
+    if (backendStatus !== 'connected' || !foodId.startsWith('fs_')) return null;
+
+    try {
+      const cleanId = foodId.replace('fs_', '');
+      let res = await fetch(`${API_BASE}/food/${cleanId}`);
+
       if (res.status === 404 || res.status === 405) {
-        console.log('?? Probando endpoint fallback...');
-        res = await fetch(`${API_BASE}/test-search/${encodeURIComponent(term)}`);
-        console.log(`?? Respuesta fallback: ${res.status} ${res.statusText}`);
+        res = await fetch(`${API_BASE}/food/${cleanId}`, { method: 'POST' });
       }
 
       if (res.ok) {
         const data = await res.json();
-        console.log('?? Datos recibidos del servidor:', data);
-        const processed = normalizeFoods(data);
-
-        setSearchResults(processed);
-        console.log(`? ${processed.length} alimentos procesados y guardados en estado`);
-        
-        // IMPORTANTE: Forzar re-render
-        setTimeout(() => {
-          console.log('?? Estado actual de searchResults:', processed);
-        }, 100);
-      } else {
-        const errorText = await res.text();
-        console.error('? Error en busqueda:', {
-          status: res.status,
-          statusText: res.statusText,
-          body: errorText
-        });
-        setSearchResults([]);
-        setError(`Error en busqueda: ${res.status} ${res.statusText}`);
+        console.log('Detalles nutricionales:', data);
+        return data;
       }
-    } else {
-      console.log('?? Backend no conectado, limpiando resultados');
-      setSearchResults([]);
-      setError('Backend no conectado');
+    } catch (error) {
+      console.error('Error obteniendo detalles:', error);
     }
-  } catch (err) {
-    console.error('?? Error de conexion:', err);
-    setSearchResults([]);
-    setError(`Error de conexion: ${err.message}`);
-  } finally {
-    setIsSearching(false);
-    console.log('?? Busqueda finalizada');
-  }
-};
+    return null;
+  };
 
-
-
-
-const startEditingConsumption = (food, mealIndex, groupName) => {
-  setEditingConsumption({ food, mealIndex, groupName });
-  setNewConsumedGrams(food.actualGrams || food.gramsPerPortion || food.standardPortionGrams);
-  setShowEditConsumption(true);
-};
-
-const saveEditedConsumption = () => {
-  if (editingConsumption) {
-    const { food, mealIndex, groupName } = editingConsumption;
-    const newConsumed = { ...consumedFoods };
-    
-    // Encontrar el alimento especifico y actualizar
-    const foodIndex = newConsumed[mealIndex][groupName].findIndex(f => f.id === food.id);
-    if (foodIndex !== -1) {
-      newConsumed[mealIndex][groupName][foodIndex] = {
-        ...food,
-        actualGrams: newConsumedGrams,
-        gramsPerPortion: newConsumedGrams // Para compatibilidad
-      };
-    }
-    
-    setConsumedFoods(newConsumed);
-    setShowEditConsumption(false);
-    setEditingConsumption(null);
-  }
-};
-  // Obtener detalles nutricionales adicionales si es necesario
-  const getFoodDetails = async (foodId) => {
-  if (backendStatus !== 'connected' || !foodId.startsWith('fs_')) return null;
-
-  try {
-    const cleanId = foodId.replace('fs_', '');
-    let res = await fetch(`${API_BASE}/food/${cleanId}`); // GET por defecto
-
-    if (res.status === 404 || res.status === 405) {
-      res = await fetch(`${API_BASE}/food/${cleanId}`, { method: 'POST' }); // fallback
-    }
-
-    if (res.ok) {
-      const data = await res.json();
-      console.log('Detalles nutricionales:', data);
-      return data;
-    }
-  } catch (error) {
-    console.error('Error obteniendo detalles:', error);
-  }
-  return null;
-};
-
-
-
-
-  // Cargar datos del localStorage
-  useEffect(() => {
-    const saved = localStorage.getItem('personalFoods');
-    if (saved) {
-      setPersonalFoods(JSON.parse(saved));
-    }
-    
-    const savedConfig = localStorage.getItem('mealConfig');
-    if (savedConfig) {
-      const config = JSON.parse(savedConfig);
-      setMealNames(config.mealNames || ['Desayuno', 'Almuerzo', 'Cena']);
-      setMealCount(config.mealCount || 3);
-      setPortionDistribution(config.portionDistribution || {});
-    }
-  }, []);
-
-  // Resto de funciones (copio las mismas del codigo anterior)
+  // MODIFICAR savePersonalFoods para usar el sistema nuevo
   const savePersonalFoods = (foods) => {
     setPersonalFoods(foods);
-    localStorage.setItem('personalFoods', JSON.stringify(foods));
+    saveToStorage(STORAGE_KEYS.PERSONAL_FOODS, foods);
   };
 
   const saveConfiguration = () => {
     const config = { mealNames, mealCount, portionDistribution };
-    localStorage.setItem('mealConfig', JSON.stringify(config));
+    saveToStorage(STORAGE_KEYS.MEAL_CONFIG, config);
   };
 
   useEffect(() => {
@@ -385,11 +536,9 @@ const saveEditedConsumption = () => {
     if (existingFood) {
       addFood(existingFood);
     } else {
-      // Si es de FatSecret y no tiene datos nutricionales completos, obtenerlos
       if (food.isFromAPI && (!food.calories || !food.protein)) {
         const details = await getFoodDetails(food.id);
         if (details && details.food) {
-          // Actualizar datos nutricionales con los detalles obtenidos
           food = { ...food, ...details.food };
         }
       }
@@ -405,16 +554,16 @@ const saveEditedConsumption = () => {
   const assignFoodCategory = (category) => {
     if (selectedFood) {
       const categorizedFood = {
-  ...selectedFood,
-  group: category,
-  gramsPerPortion: portionGrams,
-  standardPortionGrams: portionGrams,
-  calories: selectedFood.calories || 100,
-  protein: selectedFood.protein || 0,
-  carbs: selectedFood.carbs || 0,
-  fat: selectedFood.fat || 0,
-  fiber: selectedFood.fiber || 0
-};
+        ...selectedFood,
+        group: category,
+        gramsPerPortion: portionGrams,
+        standardPortionGrams: portionGrams,
+        calories: selectedFood.calories || 100,
+        protein: selectedFood.protein || 0,
+        carbs: selectedFood.carbs || 0,
+        fat: selectedFood.fat || 0,
+        fiber: selectedFood.fiber || 0
+      };
       
       const newPersonalFoods = {
         ...personalFoods,
@@ -450,34 +599,34 @@ const saveEditedConsumption = () => {
   };
 
   const getRemainingPortions = (mealIndex, group) => {
-  const planned = portionDistribution[group]?.[mealIndex] || 0;
-  let consumed = 0;
-  
-  if (consumedFoods[mealIndex]?.[group]) {
-    consumedFoods[mealIndex][group].forEach(food => {
-      const actualGrams = food.actualGrams || food.gramsPerPortion;
-      const standardGrams = food.standardPortionGrams || food.gramsPerPortion;
-      consumed += actualGrams / standardGrams;
-    });
-  }
-  
-  return Math.max(0, planned - consumed);
-};
-
-  const getTotalConsumedPortions = (group) => {
-  let total = 0;
-  Object.values(consumedFoods).forEach(meal => {
-    if (meal[group]) {
-      meal[group].forEach(food => {
+    const planned = portionDistribution[group]?.[mealIndex] || 0;
+    let consumed = 0;
+    
+    if (consumedFoods[mealIndex]?.[group]) {
+      consumedFoods[mealIndex][group].forEach(food => {
         const actualGrams = food.actualGrams || food.gramsPerPortion;
         const standardGrams = food.standardPortionGrams || food.gramsPerPortion;
-        const portions = actualGrams / standardGrams;
-        total += portions;
+        consumed += actualGrams / standardGrams;
       });
     }
-  });
-  return Math.round(total * 10) / 10;
-};
+    
+    return Math.max(0, planned - consumed);
+  };
+
+  const getTotalConsumedPortions = (group) => {
+    let total = 0;
+    Object.values(consumedFoods).forEach(meal => {
+      if (meal[group]) {
+        meal[group].forEach(food => {
+          const actualGrams = food.actualGrams || food.gramsPerPortion;
+          const standardGrams = food.standardPortionGrams || food.gramsPerPortion;
+          const portions = actualGrams / standardGrams;
+          total += portions;
+        });
+      }
+    });
+    return Math.round(total * 10) / 10;
+  };
 
   const getTotalPlannedPortions = (group) => {
     return portionDistribution[group]?.reduce((sum, portions) => sum + portions, 0) || 0;
@@ -561,7 +710,6 @@ const saveEditedConsumption = () => {
     setShowPersonalFoods(false);
   };
 
-  // Obtener status de conexion para mostrar en el header
   const getConnectionStatus = () => {
     switch (backendStatus) {
       case 'connected':
@@ -579,11 +727,41 @@ const saveEditedConsumption = () => {
     return (
       <div className="app">
         <div className="header">
-		<h1>Configuracion de Plan</h1>
-		<p style={{ color: '#bfdbfe' }}>Personaliza tus comidas y porciones</p>
+          <h1>Configuracion de Plan</h1>
+          <p style={{ color: '#bfdbfe' }}>Personaliza tus comidas y porciones</p>
         </div>
 
         <div className="setup-content">
+          {/* NUEVA SECCION DE GESTION DE DATOS */}
+          <div className="setup-section">
+            <h3>Gestion de Datos</h3>
+            <div style={{ display: 'flex', gap: '8px', marginBottom: '16px', flexWrap: 'wrap' }}>
+              <button onClick={exportData} style={{ background: '#059669', color: 'white', border: 'none', padding: '8px 12px', borderRadius: '6px', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '4px' }}>
+                <Download size={16} />
+                Exportar Datos
+              </button>
+              <label style={{ background: '#2563eb', color: 'white', border: 'none', padding: '8px 12px', borderRadius: '6px', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '4px' }}>
+                <Upload size={16} />
+                Importar Datos
+                <input 
+                  type="file" 
+                  accept=".json"
+                  onChange={(e) => e.target.files[0] && importData(e.target.files[0])}
+                  style={{ display: 'none' }}
+                />
+              </label>
+              <button onClick={clearOldData} style={{ background: '#f59e0b', color: 'white', border: 'none', padding: '8px 12px', borderRadius: '6px', cursor: 'pointer' }}>
+                Limpiar Antiguos
+              </button>
+              <button onClick={resetTodayData} style={{ background: '#ef4444', color: 'white', border: 'none', padding: '8px 12px', borderRadius: '6px', cursor: 'pointer' }}>
+                Reiniciar Hoy
+              </button>
+            </div>
+            <div style={{ fontSize: '12px', color: '#6b7280' }}>
+              Alimentos guardados: {Object.keys(personalFoods).length} | Busquedas: {searchHistory.length}
+            </div>
+          </div>
+
           <div className="setup-section">
             <div className="section-header">
               <h3>Tus Comidas</h3>
@@ -672,45 +850,73 @@ const saveEditedConsumption = () => {
     );
   }
 
+  // COMPONENTE DE HISTORIAL DE BUSQUEDAS
+  const SearchHistoryComponent = () => (
+    searchHistory.length > 0 && (
+      <div style={{ marginBottom: '16px', padding: '12px', background: '#f8fafc', borderRadius: '8px', border: '1px solid #e2e8f0' }}>
+        <h4 style={{ fontSize: '12px', fontWeight: '600', color: '#475569', marginBottom: '8px' }}>Busquedas Recientes</h4>
+        <div style={{ display: 'flex', gap: '4px', flexWrap: 'wrap' }}>
+          {searchHistory.slice(0, 5).map((search, index) => (
+            <button
+              key={index}
+              onClick={() => setSearchTerm(search.term)}
+              style={{ 
+                padding: '4px 8px', 
+                fontSize: '11px', 
+                background: '#e2e8f0', 
+                border: 'none', 
+                borderRadius: '4px', 
+                cursor: 'pointer',
+                color: '#475569'
+              }}
+            >
+              {search.term} ({search.resultCount})
+            </button>
+          ))}
+        </div>
+      </div>
+    )
+  );
+
   return (
     <div className="app">
-      {/* Resto del JSX igual que antes, pero con indicador de conexion actualizado */}
       {/* Modal para editar cantidad consumida */}
-{showEditConsumption && editingConsumption && (
-  <div className="modal-overlay">
-    <div className="modal">
-      <h3>Editar Cantidad Consumida</h3>
-      <p style={{ fontSize: '14px', marginBottom: '16px' }}>
-        <strong>{editingConsumption.food.name}</strong>
-      </p>
-      
-      <div style={{ marginBottom: '16px' }}>
-        <label style={{ display: 'block', marginBottom: '8px' }}>
-          Gramos consumidos:
-        </label>
-        <input
-          type="number"
-          value={newConsumedGrams}
-          onChange={(e) => setNewConsumedGrams(Math.max(1, parseInt(e.target.value) || 1))}
-          style={{ width: '100%', padding: '8px', border: '1px solid #d1d5db', borderRadius: '6px' }}
-          min="1"
-        />
-        <p style={{ fontSize: '12px', color: '#2563eb', marginTop: '4px' }}>
-          Calorias: {Math.round(editingConsumption.food.calories * newConsumedGrams / 100)} kcal
-        </p>
-      </div>
-      
-      <div style={{ display: 'flex', gap: '8px' }}>
-        <button onClick={saveEditedConsumption} style={{ flex: 1, background: '#2563eb', color: 'white', border: 'none', padding: '8px', borderRadius: '6px' }}>
-          Guardar
-        </button>
-        <button onClick={() => setShowEditConsumption(false)} className="cancel-btn-modal">
-          Cancelar
-        </button>
-      </div>
-    </div>
-  </div>
-)}
+      {showEditConsumption && editingConsumption && (
+        <div className="modal-overlay">
+          <div className="modal">
+            <h3>Editar Cantidad Consumida</h3>
+            <p style={{ fontSize: '14px', marginBottom: '16px' }}>
+              <strong>{editingConsumption.food.name}</strong>
+            </p>
+            
+            <div style={{ marginBottom: '16px' }}>
+              <label style={{ display: 'block', marginBottom: '8px' }}>
+                Gramos consumidos:
+              </label>
+              <input
+                type="number"
+                value={newConsumedGrams}
+                onChange={(e) => setNewConsumedGrams(Math.max(1, parseInt(e.target.value) || 1))}
+                style={{ width: '100%', padding: '8px', border: '1px solid #d1d5db', borderRadius: '6px' }}
+                min="1"
+              />
+              <p style={{ fontSize: '12px', color: '#2563eb', marginTop: '4px' }}>
+                Calorias: {Math.round(editingConsumption.food.calories * newConsumedGrams / 100)} kcal
+              </p>
+            </div>
+            
+            <div style={{ display: 'flex', gap: '8px' }}>
+              <button onClick={saveEditedConsumption} style={{ flex: 1, background: '#2563eb', color: 'white', border: 'none', padding: '8px', borderRadius: '6px' }}>
+                Guardar
+              </button>
+              <button onClick={() => setShowEditConsumption(false)} className="cancel-btn-modal">
+                Cancelar
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Header con indicador de estado de backend */}
       <div className="header">
         <div className="header-top">
@@ -719,21 +925,21 @@ const saveEditedConsumption = () => {
             <button 
               onClick={() => setShowStats(true)}
               className="header-btn"
-				title="Estadisticas"
+              title="Estadisticas"
             >
               <BarChart3 size={20} />
             </button>
             <button 
               onClick={() => setShowSetup(true)}
               className="header-btn"
-				title="Configuracion"
+              title="Configuracion"
             >
               <Settings size={20} />
             </button>
           </div>
         </div>
         
-		{/* Contador de calorias */}
+        {/* Contador de calorias */}
         <div className="header-stats">
           <div style={{ display: 'flex', alignItems: 'center' }}>
             <Activity size={16} style={{ marginRight: '4px' }} />
@@ -802,7 +1008,7 @@ const saveEditedConsumption = () => {
                 </div>
                 <div style={{ fontSize: '12px', color: '#1e40af' }}>
                   {selectedFood.calories && <div>Calorias: {selectedFood.calories} kcal</div>}
-					{selectedFood.protein && <div>Proteina: {selectedFood.protein}g</div>}
+                  {selectedFood.protein && <div>Proteina: {selectedFood.protein}g</div>}
                   {selectedFood.carbs && <div>Carbohidratos: {selectedFood.carbs}g</div>}
                   {selectedFood.fat && <div>Grasas: {selectedFood.fat}g</div>}
                 </div>
@@ -877,33 +1083,33 @@ const saveEditedConsumption = () => {
                     onClick={() => addFromPersonalFoods(food)}
                     className="personal-food-item"
                   >
-<div className="personal-food-info">
-  <div className="personal-food-name">{food.name}</div>
-  <div className="personal-food-details">
-    {foodGroups[food.group].icon} {food.standardPortionGrams}g = 1 porcion
-    {food.isFromAPI && <span style={{ color: '#22c55e' }}>FatSecret</span>}
-  </div>
-</div>
-<div style={{ display: 'flex', gap: '4px' }}>
-  <button 
-    onClick={(e) => {
-      e.stopPropagation();
-      deleteFood(food.id);
-    }}
-    style={{ padding: '4px', background: 'none', border: 'none', color: '#ef4444', cursor: 'pointer' }}
-  >
-    <Trash2 size={12} />
-  </button>
-</div>
-<button 
-  onClick={(e) => {
-    e.stopPropagation();
-    startEditingFood(food);
-  }}
-  style={{ padding: '4px', background: 'none', border: 'none', color: '#2563eb', cursor: 'pointer' }}
->
-  <Edit3 size={12} />
-</button>
+                    <div className="personal-food-info">
+                      <div className="personal-food-name">{food.name}</div>
+                      <div className="personal-food-details">
+                        {foodGroups[food.group].icon} {food.standardPortionGrams}g = 1 porcion
+                        {food.isFromAPI && <span style={{ color: '#22c55e' }}>FatSecret</span>}
+                      </div>
+                    </div>
+                    <div style={{ display: 'flex', gap: '4px' }}>
+                      <button 
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          deleteFood(food.id);
+                        }}
+                        style={{ padding: '4px', background: 'none', border: 'none', color: '#ef4444', cursor: 'pointer' }}
+                      >
+                        <Trash2 size={12} />
+                      </button>
+                      <button 
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          startEditingFood(food);
+                        }}
+                        style={{ padding: '4px', background: 'none', border: 'none', color: '#2563eb', cursor: 'pointer' }}
+                      >
+                        <Edit3 size={12} />
+                      </button>
+                    </div>
                   </div>
                 ))}
               </div>
@@ -918,38 +1124,39 @@ const saveEditedConsumption = () => {
           </div>
         </div>
       )}
-	  {showEditFood && editingFood && (
-  <div className="modal-overlay">
-    <div className="modal">
-      <h3>Editar Alimento</h3>
-      <p style={{ fontSize: '14px', marginBottom: '16px' }}>
-        <strong>{editingFood.name}</strong>
-      </p>
-      
-      <div style={{ marginBottom: '16px' }}>
-        <label style={{ display: 'block', marginBottom: '8px' }}>
-          Gramos por porcion estandar:
-        </label>
-        <input
-          type="number"
-          value={newStandardGrams}
-          onChange={(e) => setNewStandardGrams(Math.max(1, parseInt(e.target.value) || 1))}
-          style={{ width: '100%', padding: '8px', border: '1px solid #d1d5db', borderRadius: '6px' }}
-          min="1"
-        />
-      </div>
-      
-      <div style={{ display: 'flex', gap: '8px' }}>
-        <button onClick={saveEditedFood} style={{ flex: 1, background: '#2563eb', color: 'white', border: 'none', padding: '8px', borderRadius: '6px' }}>
-          Guardar
-        </button>
-        <button onClick={() => setShowEditFood(false)} className="cancel-btn-modal">
-          Cancelar
-        </button>
-      </div>
-    </div>
-  </div>
-)}
+
+      {showEditFood && editingFood && (
+        <div className="modal-overlay">
+          <div className="modal">
+            <h3>Editar Alimento</h3>
+            <p style={{ fontSize: '14px', marginBottom: '16px' }}>
+              <strong>{editingFood.name}</strong>
+            </p>
+            
+            <div style={{ marginBottom: '16px' }}>
+              <label style={{ display: 'block', marginBottom: '8px' }}>
+                Gramos por porcion estandar:
+              </label>
+              <input
+                type="number"
+                value={newStandardGrams}
+                onChange={(e) => setNewStandardGrams(Math.max(1, parseInt(e.target.value) || 1))}
+                style={{ width: '100%', padding: '8px', border: '1px solid #d1d5db', borderRadius: '6px' }}
+                min="1"
+              />
+            </div>
+            
+            <div style={{ display: 'flex', gap: '8px' }}>
+              <button onClick={saveEditedFood} style={{ flex: 1, background: '#2563eb', color: 'white', border: 'none', padding: '8px', borderRadius: '6px' }}>
+                Guardar
+              </button>
+              <button onClick={() => setShowEditFood(false)} className="cancel-btn-modal">
+                Cancelar
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Modal de estadisticas */}
       {showStats && (
@@ -1007,7 +1214,7 @@ const saveEditedConsumption = () => {
         </div>
       )}
 
-      {/* Resto del contenido igual que antes - resumen, busqueda, etc. */}
+      {/* Resto del contenido */}
       <div className="daily-summary">
         <div className="summary-header">
           <h2 style={{ fontSize: '14px', fontWeight: '600', color: '#1e40af' }}>Resumen Diario</h2>
@@ -1149,6 +1356,9 @@ const saveEditedConsumption = () => {
             />
           </div>
 
+          {/* AGREGAR HISTORIAL DE BUSQUEDAS */}
+          <SearchHistoryComponent />
+
           {isSearching && (
             <div className="loading">
               <div className="spinner"></div>
@@ -1169,16 +1379,16 @@ const saveEditedConsumption = () => {
                     <div className="result-info">
                       <div className="result-name">{food.name}</div>
                       <div className="result-details">
-                        {food.brand && <span>{food.brand} ? </span>}
+                        {food.brand && <span>{food.brand} ¡E </span>}
                         {food.isFromAPI ? (
-                          <span style={{ color: '#22c55e' }}>FatSecret ? </span>
+                          <span style={{ color: '#22c55e' }}>FatSecret ¡E </span>
                         ) : (
-                          <span>Datos locales ? </span>
+                          <span>Datos locales ¡E </span>
                         )}
                         {food.calories ? `${food.calories} kcal/100g` : 'Tap para info nutricional'}
-                        {food.protein && <span> ? {food.protein}g prot</span>}
-                        {food.carbs && <span> ? {food.carbs}g carb</span>}
-                        {food.fat && <span> ? {food.fat}g grasa</span>}
+                        {food.protein && <span> ¡E {food.protein}g prot</span>}
+                        {food.carbs && <span> ¡E {food.carbs}g carb</span>}
+                        {food.fat && <span> ¡E {food.fat}g grasa</span>}
                       </div>
                       {isPersonalFood && (
                         <div className="saved-indicator">
@@ -1225,35 +1435,34 @@ const saveEditedConsumption = () => {
               <div key={group} style={{ marginBottom: '16px' }}>
                 <div className="group-header-consumed">
                   {foods.map((food) => (
-  <div key={food.id} className="consumed-item">
-    <div className="consumed-info">
-      <div className="consumed-name">
-        {food.name}
-        {food.isFromAPI && <span style={{ color: '#22c55e', fontSize: '12px', marginLeft: '4px' }}></span>}
-      </div>
-      <div className="consumed-details">
-{food.actualGrams || food.gramsPerPortion}g ({Math.round((food.actualGrams || food.gramsPerPortion) / (food.standardPortionGrams || food.gramsPerPortion) * 10) / 10} porciones) {Math.round(food.calories * (food.actualGrams || food.gramsPerPortion) / 100)} kcal {food.protein && <span> {Math.round(food.protein * (food.actualGrams || food.gramsPerPortion) / 100 * 10) / 10}g prot</span>}
-        <span className="timestamp"> {food.timestamp}</span>
-      </div>
-    </div>
-    <div style={{ display: 'flex', gap: '4px' }}>
-      <button
-        onClick={() => startEditingConsumption(food, currentMeal, group)}
-        style={{ background: 'none', border: 'none', color: '#2563eb', cursor: 'pointer', padding: '4px' }}
-      >
-        <Edit3 size={14} />
-      </button>
-      <button
-        onClick={() => removeFood(currentMeal, group, food.id)}
-        className="remove-btn"
-      >
-        <Trash2 size={16} />
-      </button>
-    </div>
-  </div>
-))}
-                 
-                  </div>
+                    <div key={food.id} className="consumed-item">
+                      <div className="consumed-info">
+                        <div className="consumed-name">
+                          {food.name}
+                          {food.isFromAPI && <span style={{ color: '#22c55e', fontSize: '12px', marginLeft: '4px' }}></span>}
+                        </div>
+                        <div className="consumed-details">
+                          {food.actualGrams || food.gramsPerPortion}g ({Math.round((food.actualGrams || food.gramsPerPortion) / (food.standardPortionGrams || food.gramsPerPortion) * 10) / 10} porciones) {Math.round(food.calories * (food.actualGrams || food.gramsPerPortion) / 100)} kcal {food.protein && <span> {Math.round(food.protein * (food.actualGrams || food.gramsPerPortion) / 100 * 10) / 10}g prot</span>}
+                          <span className="timestamp"> {food.timestamp}</span>
+                        </div>
+                      </div>
+                      <div style={{ display: 'flex', gap: '4px' }}>
+                        <button
+                          onClick={() => startEditingConsumption(food, currentMeal, group)}
+                          style={{ background: 'none', border: 'none', color: '#2563eb', cursor: 'pointer', padding: '4px' }}
+                        >
+                          <Edit3 size={14} />
+                        </button>
+                        <button
+                          onClick={() => removeFood(currentMeal, group, food.id)}
+                          className="remove-btn"
+                        >
+                          <Trash2 size={16} />
+                        </button>
+                      </div>
+                    </div>
+                  ))}
+                </div>
               </div>
             );
           })}
@@ -1279,11 +1488,12 @@ const saveEditedConsumption = () => {
         </h3>
         <div style={{ fontSize: '12px', color: '#1e40af' }}>
           <div style={{ marginBottom: '4px' }}>
-             <strong>Busca alimentos</strong> {backendStatus === 'connected' ? 'en la base de datos de FatSecret' : 'con datos nutricionales'}
+            ? <strong>Busca alimentos</strong> {backendStatus === 'connected' ? 'en la base de datos de FatSecret' : 'con datos nutricionales'}
           </div>
-          <div style={{ marginBottom: '4px' }}> <strong>Categoriza y define gramos</strong> por porcion la primera vez</div>
-          <div style={{ marginBottom: '4px' }}> <strong>Anade automaticamente</strong> en siguientes busquedas</div>
-          <div> <strong>Seguimiento completo</strong> de calorias y macros</div>
+          <div style={{ marginBottom: '4px' }}>? <strong>Categoriza y define gramos</strong> por porcion la primera vez</div>
+          <div style={{ marginBottom: '4px' }}>? <strong>Anade automaticamente</strong> en siguientes busquedas</div>
+          <div style={{ marginBottom: '4px' }}>? <strong>Seguimiento completo</strong> de calorias y macros</div>
+          <div>? <strong>Datos guardados automaticamente</strong> - no se pierden al cerrar</div>
         </div>
         
         {backendStatus !== 'connected' && (
@@ -1291,6 +1501,10 @@ const saveEditedConsumption = () => {
             <strong>Modo Demo:</strong> Para acceder a datos nutricionales reales, inicia el servidor backend.
           </div>
         )}
+        
+        <div style={{ marginTop: '8px', fontSize: '11px', color: '#059669', backgroundColor: '#d1fae5', padding: '8px', borderRadius: '6px' }}>
+          <strong>Persistencia Activa:</strong> Tus datos se guardan automaticamente por fecha. Puedes exportar/importar desde Configuracion.
+        </div>
       </div>
     </div>
   );
