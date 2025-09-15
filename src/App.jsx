@@ -58,7 +58,7 @@ const PortionTracker = () => {
 const checkBackendHealth = async () => {
   try {
     setError('Conectando con servidor...');
-    const response = await fetch(`${API_BASE}/health`); // ?? GET correcto
+    const response = await fetch(`${API_BASE}/health`);
     const data = await response.json();
 
     if (response.ok) {
@@ -75,6 +75,7 @@ const checkBackendHealth = async () => {
     console.warn('Backend offline, usando datos mock');
   }
 };
+
 
 
   
@@ -114,21 +115,29 @@ const searchFoodsAPI = async (term) => {
 
   try {
     if (backendStatus === 'connected') {
-      console.log(`Buscando en API: "${term}"`);
+      console.log(`Buscando: "${term}"`);
 
-      // ?? antes llamabas POST /api/search; ahora usamos GET /api/test-search/:term
-      const response = await fetch(`${API_BASE}/test-search/${encodeURIComponent(term)}`);
+      // Intento A: POST /api/search
+      let res = await fetch(`${API_BASE}/search`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ query: term, maxResults: 15 })
+      });
 
-      if (response.ok) {
-        const data = await response.json();
+      // Si la ruta no existe o metodo no permitido, intenta la alternativa GET
+      if (res.status === 404 || res.status === 405) {
+        res = await fetch(`${API_BASE}/test-search/${encodeURIComponent(term)}`);
+      }
 
-        // Normaliza resultados de forma robusta
-        const rawList =
+      if (res.ok) {
+        const data = await res.json();
+
+        const list =
           Array.isArray(data?.foods) ? data.foods :
           Array.isArray(data?.foods?.food) ? data.foods.food :
           (data?.foods?.food ? [data.foods.food] : []);
 
-        const processedFoods = rawList.map((food) => ({
+        const normalized = list.map((food) => ({
           id: `fs_${food.id ?? food.food_id ?? crypto.randomUUID()}`,
           name: food.name ?? food.food_name ?? 'Alimento',
           calories: food.calories ?? null,
@@ -141,21 +150,23 @@ const searchFoodsAPI = async (term) => {
           isFromAPI: true
         }));
 
-        setSearchResults(processedFoods);
-        console.log(`? ${processedFoods.length} alimentos encontrados`);
+        setSearchResults(normalized);
+        console.log(`? ${normalized.length} alimentos`);
       } else {
-        const errorData = await response.json().catch(() => ({}));
-        console.error('? Error en busqueda:', errorData);
+        const errData = await res.json().catch(() => ({}));
+        console.error('? Error busqueda:', errData);
+        setSearchResults([]);
         setError('Error en la busqueda');
       }
     }
   } catch (err) {
-    console.error('? Error de conexion:', err);
+    console.error('? Conexion', err);
     setError('Error de conexion - usando datos locales');
   } finally {
     setIsSearching(false);
   }
 };
+
 
 
 const startEditingConsumption = (food, mealIndex, groupName) => {
@@ -190,11 +201,17 @@ const saveEditedConsumption = () => {
 
   try {
     const cleanId = foodId.replace('fs_', '');
-    // ?? antes usabas POST; ahora GET
-    const response = await fetch(`${API_BASE}/food/${cleanId}`);
 
-    if (response.ok) {
-      const data = await response.json();
+    // Intento A: GET
+    let res = await fetch(`${API_BASE}/food/${cleanId}`);
+
+    // Intento B (si tu backend espera POST)
+    if (res.status === 404 || res.status === 405) {
+      res = await fetch(`${API_BASE}/food/${cleanId}`, { method: 'POST' });
+    }
+
+    if (res.ok) {
+      const data = await res.json();
       console.log('Detalles nutricionales:', data);
       return data;
     }
@@ -203,6 +220,7 @@ const saveEditedConsumption = () => {
   }
   return null;
 };
+
 
 
   // Cargar datos del localStorage
