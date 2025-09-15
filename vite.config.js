@@ -5,7 +5,7 @@ export default defineConfig({
   plugins: [react()],
   server: {
     proxy: {
-      "/api": "http://localhost:3000" // puerto del backend local
+      "/api": "https://portion-tracker-backend-production.up.railway.app/" // puerto del backend local
     }
   }
 });
