@@ -53,6 +53,18 @@ const PortionTracker = () => {
   useEffect(() => {
     checkBackendHealth();
   }, []);
+  
+  useEffect(() => {
+  const timeoutId = setTimeout(() => {
+    if (searchTerm.length >= 2) {
+      searchFoodsAPI(searchTerm);
+    } else {
+      setSearchResults([]);
+    }
+  }, 500); // Debounce de 500ms
+
+  return () => clearTimeout(timeoutId);
+}, [searchTerm]);
 
   // Verificar estado del backend
 const checkBackendHealth = async () => {
@@ -108,8 +120,12 @@ const checkBackendHealth = async () => {
 
   // Buscar alimentos usando backend real o datos mock
 const searchFoodsAPI = async (term) => {
-  if (!term || term.length < 2) return;
+  if (!term || term.length < 2) {
+    setSearchResults([]);
+    return;
+  }
 
+  console.log(`?? Iniciando busqueda para: "${term}"`);
   setIsSearching(true);
   setError('');
 
@@ -122,6 +138,7 @@ const searchFoodsAPI = async (term) => {
 
   // normalizador robusto de respuesta
   const normalizeFoods = (data) => {
+    console.log('?? Datos recibidos para normalizar:', data);
     let list = [];
     if (Array.isArray(data)) list = data;
     else if (Array.isArray(data?.foods)) list = data.foods;
@@ -129,27 +146,30 @@ const searchFoodsAPI = async (term) => {
     else if (Array.isArray(data?.foods?.food)) list = data.foods.food;
     else if (data?.foods?.food) list = [data.foods.food];
 
-    return list.map((f, idx) => {
+    const normalized = list.map((f, idx) => {
       const idRaw = f.id ?? f.food_id ?? f.foodId ?? f.code ?? idx;
       const name = f.name ?? f.food_name ?? f.description ?? `Alimento ${idx + 1}`;
       return {
         id: `fs_${idRaw}`,
         name,
         calories: toNum(f.calories ?? f.kcal ?? f.energy_kcal),
-        protein:  toNum(f.protein ?? f.proteins ?? f.protein_g),
-        carbs:    toNum(f.carbs ?? f.carbohydrates ?? f.carbs_g),
-        fat:      toNum(f.fat ?? f.fats ?? f.fat_g),
-        brand:    f.brand ?? f.brand_name ?? '',
-        type:     'API',
+        protein: toNum(f.protein ?? f.proteins ?? f.protein_g),
+        carbs: toNum(f.carbs ?? f.carbohydrates ?? f.carbs_g),
+        fat: toNum(f.fat ?? f.fats ?? f.fat_g),
+        brand: f.brand ?? f.brand_name ?? '',
+        type: 'API',
         description: f.description ?? '',
         isFromAPI: true
       };
     });
+
+    console.log(`? ${normalized.length} alimentos normalizados:`, normalized);
+    return normalized;
   };
 
   try {
     if (backendStatus === 'connected') {
-      console.log(`Buscando: "${term}"`);
+      console.log(`?? Realizando peticion a: ${API_BASE}/search`);
 
       // Intento A: POST /api/search
       let res = await fetch(`${API_BASE}/search`, {
@@ -158,32 +178,51 @@ const searchFoodsAPI = async (term) => {
         body: JSON.stringify({ query: term, maxResults: 15 })
       });
 
+      console.log(`?? Respuesta del servidor: ${res.status} ${res.statusText}`);
+
       // Si tu backend usa GET /api/test-search/:term, probamos fallback
       if (res.status === 404 || res.status === 405) {
+        console.log('?? Probando endpoint fallback...');
         res = await fetch(`${API_BASE}/test-search/${encodeURIComponent(term)}`);
+        console.log(`?? Respuesta fallback: ${res.status} ${res.statusText}`);
       }
 
       if (res.ok) {
         const data = await res.json();
+        console.log('?? Datos recibidos del servidor:', data);
         const processed = normalizeFoods(data);
 
         setSearchResults(processed);
-        console.log(`? ${processed.length} alimentos normalizados`, processed);
+        console.log(`? ${processed.length} alimentos procesados y guardados en estado`);
+        
+        // IMPORTANTE: Forzar re-render
+        setTimeout(() => {
+          console.log('?? Estado actual de searchResults:', processed);
+        }, 100);
       } else {
-        const errorData = await res.json().catch(() => ({}));
-        console.error('? Error en busqueda:', errorData);
+        const errorText = await res.text();
+        console.error('? Error en busqueda:', {
+          status: res.status,
+          statusText: res.statusText,
+          body: errorText
+        });
         setSearchResults([]);
-        setError('Error en la busqueda');
+        setError(`Error en busqueda: ${res.status} ${res.statusText}`);
       }
+    } else {
+      console.log('?? Backend no conectado, limpiando resultados');
+      setSearchResults([]);
+      setError('Backend no conectado');
     }
   } catch (err) {
-    console.error('? Error de conexion:', err);
-    setError('Error de conexion - usando datos locales');
+    console.error('?? Error de conexion:', err);
+    setSearchResults([]);
+    setError(`Error de conexion: ${err.message}`);
   } finally {
     setIsSearching(false);
+    console.log('?? Busqueda finalizada');
   }
 };
-
 
 
 
@@ -1098,15 +1137,19 @@ const saveEditedConsumption = () => {
           <div className="search-box">
             <Search className="search-icon" size={16} />
             <input
-              type="text"
-              placeholder={backendStatus === 'connected' ? 
-                "Buscar en FatSecret... (ej: chicken breast, apple)" : 
-                "Buscar alimentos... (ej: pollo, manzana, arroz)"
-              }
-              value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
-              className="search-input"
-            />
+			  type="text"
+			  placeholder={backendStatus === 'connected' ? 
+				"Buscar en FatSecret... (ej: chicken breast, apple)" : 
+				"Buscar alimentos... (ej: pollo, manzana, arroz)"
+			  }
+			  value={searchTerm}
+			  onChange={(e) => {
+				console.log('?? Cambiando searchTerm:', e.target.value);
+				setSearchTerm(e.target.value);
+			  }}
+			  onFocus={() => debugSearchState()} // Debug al hacer focus
+			  className="search-input"
+			/>
           </div>
 
           {isSearching && (
@@ -1117,24 +1160,28 @@ const saveEditedConsumption = () => {
           )}
 
           {searchResults.length > 0 && (
-            <div className="results">
-              {searchResults.map((food, index) => {
-                const isPersonalFood = personalFoods[food.id];
-                return (
-                  <div 
-                    key={food.id}
-                    onClick={() => handleFoodSelect(food)}
-                    className="result-item"
-                  >
-                    <div className="result-info">
-                      <div className="result-name">{food.name}</div>
-                      <div className="result-details">
-                        {food.brand && <span>{food.brand} ? </span>}
-                        {food.isFromAPI ? (
-                          <span style={{ color: '#22c55e' }}>FatSecret ? </span>
-                        ) : (
-                          <span>Datos locales ? </span>
-                        )}
+  <div className="results">
+    <div style={{ fontSize: '12px', color: '#666', marginBottom: '8px' }}>
+      ?? Mostrando {searchResults.length} resultados para "{searchTerm}"
+    </div>
+    {searchResults.map((food, index) => {
+							  const isPersonalFood = personalFoods[food.id];
+							  console.log(`?? Renderizando alimento ${index}:`, food);
+							  return (
+								<div 
+								  key={food.id}
+								  onClick={() => {
+									console.log('?? Click en alimento:', food);
+									handleFoodSelect(food);
+								  }}
+								  className="result-item"
+								>
+								  {/* Resto del contenido del item igual */}
+								</div>
+							  );
+							})}
+						  </div>
+						)}}
                         {food.calories ? `${food.calories} kcal/100g` : 'Tap para info nutricional'}
                         {food.protein && <span> ? {food.protein}g prot</span>}
                         {food.carbs && <span> ? {food.carbs}g carb</span>}
