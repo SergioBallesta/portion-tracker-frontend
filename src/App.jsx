@@ -53,18 +53,6 @@ const PortionTracker = () => {
   useEffect(() => {
     checkBackendHealth();
   }, []);
-  
-  useEffect(() => {
-  const timeoutId = setTimeout(() => {
-    if (searchTerm.length >= 2) {
-      searchFoodsAPI(searchTerm);
-    } else {
-      setSearchResults([]);
-    }
-  }, 500); // Debounce de 500ms
-
-  return () => clearTimeout(timeoutId);
-}, [searchTerm]);
 
   // Verificar estado del backend
 const checkBackendHealth = async () => {
@@ -223,6 +211,7 @@ const searchFoodsAPI = async (term) => {
     console.log('?? Busqueda finalizada');
   }
 };
+
 
 
 
@@ -1137,19 +1126,15 @@ const saveEditedConsumption = () => {
           <div className="search-box">
             <Search className="search-icon" size={16} />
             <input
-			  type="text"
-			  placeholder={backendStatus === 'connected' ? 
-				"Buscar en FatSecret... (ej: chicken breast, apple)" : 
-				"Buscar alimentos... (ej: pollo, manzana, arroz)"
-			  }
-			  value={searchTerm}
-			  onChange={(e) => {
-				console.log('?? Cambiando searchTerm:', e.target.value);
-				setSearchTerm(e.target.value);
-			  }}
-			  onFocus={() => debugSearchState()} // Debug al hacer focus
-			  className="search-input"
-			/>
+              type="text"
+              placeholder={backendStatus === 'connected' ? 
+                "Buscar en FatSecret... (ej: chicken breast, apple)" : 
+                "Buscar alimentos... (ej: pollo, manzana, arroz)"
+              }
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+              className="search-input"
+            />
           </div>
 
           {isSearching && (
@@ -1160,28 +1145,24 @@ const saveEditedConsumption = () => {
           )}
 
           {searchResults.length > 0 && (
-  <div className="results">
-    <div style={{ fontSize: '12px', color: '#666', marginBottom: '8px' }}>
-      ?? Mostrando {searchResults.length} resultados para "{searchTerm}"
-    </div>
-    {searchResults.map((food, index) => {
-							  const isPersonalFood = personalFoods[food.id];
-							  console.log(`?? Renderizando alimento ${index}:`, food);
-							  return (
-								<div 
-								  key={food.id}
-								  onClick={() => {
-									console.log('?? Click en alimento:', food);
-									handleFoodSelect(food);
-								  }}
-								  className="result-item"
-								>
-								  {/* Resto del contenido del item igual */}
-								</div>
-							  );
-							})}
-						  </div>
-						)}}
+            <div className="results">
+              {searchResults.map((food, index) => {
+                const isPersonalFood = personalFoods[food.id];
+                return (
+                  <div 
+                    key={food.id}
+                    onClick={() => handleFoodSelect(food)}
+                    className="result-item"
+                  >
+                    <div className="result-info">
+                      <div className="result-name">{food.name}</div>
+                      <div className="result-details">
+                        {food.brand && <span>{food.brand} ? </span>}
+                        {food.isFromAPI ? (
+                          <span style={{ color: '#22c55e' }}>FatSecret ? </span>
+                        ) : (
+                          <span>Datos locales ? </span>
+                        )}
                         {food.calories ? `${food.calories} kcal/100g` : 'Tap para info nutricional'}
                         {food.protein && <span> ? {food.protein}g prot</span>}
                         {food.carbs && <span> ? {food.carbs}g carb</span>}
