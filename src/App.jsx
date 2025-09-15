@@ -113,6 +113,40 @@ const searchFoodsAPI = async (term) => {
   setIsSearching(true);
   setError('');
 
+  // helper local para numeros tipo "12,3" o "12.3"
+  const toNum = (v) => {
+    if (v == null) return null;
+    const n = parseFloat(String(v).replace(',', '.'));
+    return Number.isNaN(n) ? null : Math.round(n * 10) / 10;
+  };
+
+  // normalizador robusto de respuesta
+  const normalizeFoods = (data) => {
+    let list = [];
+    if (Array.isArray(data)) list = data;
+    else if (Array.isArray(data?.foods)) list = data.foods;
+    else if (Array.isArray(data?.results)) list = data.results;
+    else if (Array.isArray(data?.foods?.food)) list = data.foods.food;
+    else if (data?.foods?.food) list = [data.foods.food];
+
+    return list.map((f, idx) => {
+      const idRaw = f.id ?? f.food_id ?? f.foodId ?? f.code ?? idx;
+      const name = f.name ?? f.food_name ?? f.description ?? `Alimento ${idx + 1}`;
+      return {
+        id: `fs_${idRaw}`,
+        name,
+        calories: toNum(f.calories ?? f.kcal ?? f.energy_kcal),
+        protein:  toNum(f.protein ?? f.proteins ?? f.protein_g),
+        carbs:    toNum(f.carbs ?? f.carbohydrates ?? f.carbs_g),
+        fat:      toNum(f.fat ?? f.fats ?? f.fat_g),
+        brand:    f.brand ?? f.brand_name ?? '',
+        type:     'API',
+        description: f.description ?? '',
+        isFromAPI: true
+      };
+    });
+  };
+
   try {
     if (backendStatus === 'connected') {
       console.log(`Buscando: "${term}"`);
@@ -124,48 +158,32 @@ const searchFoodsAPI = async (term) => {
         body: JSON.stringify({ query: term, maxResults: 15 })
       });
 
-      // Si la ruta no existe o metodo no permitido, intenta la alternativa GET
+      // Si tu backend usa GET /api/test-search/:term, probamos fallback
       if (res.status === 404 || res.status === 405) {
         res = await fetch(`${API_BASE}/test-search/${encodeURIComponent(term)}`);
       }
 
       if (res.ok) {
         const data = await res.json();
+        const processed = normalizeFoods(data);
 
-        const list =
-          Array.isArray(data?.foods) ? data.foods :
-          Array.isArray(data?.foods?.food) ? data.foods.food :
-          (data?.foods?.food ? [data.foods.food] : []);
-
-        const normalized = list.map((food) => ({
-          id: `fs_${food.id ?? food.food_id ?? crypto.randomUUID()}`,
-          name: food.name ?? food.food_name ?? 'Alimento',
-          calories: food.calories ?? null,
-          protein: food.protein ?? null,
-          carbs:   food.carbs   ?? null,
-          fat:     food.fat     ?? null,
-          brand:   food.brand   ?? food.brand_name ?? '',
-          type: 'API',
-          description: food.description ?? '',
-          isFromAPI: true
-        }));
-
-        setSearchResults(normalized);
-        console.log(`? ${normalized.length} alimentos`);
+        setSearchResults(processed);
+        console.log(`? ${processed.length} alimentos normalizados`, processed);
       } else {
-        const errData = await res.json().catch(() => ({}));
-        console.error('? Error busqueda:', errData);
+        const errorData = await res.json().catch(() => ({}));
+        console.error('? Error en busqueda:', errorData);
         setSearchResults([]);
         setError('Error en la busqueda');
       }
     }
   } catch (err) {
-    console.error('? Conexion', err);
+    console.error('? Error de conexion:', err);
     setError('Error de conexion - usando datos locales');
   } finally {
     setIsSearching(false);
   }
 };
+
 
 
 
@@ -201,13 +219,10 @@ const saveEditedConsumption = () => {
 
   try {
     const cleanId = foodId.replace('fs_', '');
+    let res = await fetch(`${API_BASE}/food/${cleanId}`); // GET por defecto
 
-    // Intento A: GET
-    let res = await fetch(`${API_BASE}/food/${cleanId}`);
-
-    // Intento B (si tu backend espera POST)
     if (res.status === 404 || res.status === 405) {
-      res = await fetch(`${API_BASE}/food/${cleanId}`, { method: 'POST' });
+      res = await fetch(`${API_BASE}/food/${cleanId}`, { method: 'POST' }); // fallback
     }
 
     if (res.ok) {
@@ -220,6 +235,7 @@ const saveEditedConsumption = () => {
   }
   return null;
 };
+
 
 
 
@@ -817,7 +833,7 @@ const saveEditedConsumption = () => {
               <div className="personal-foods-list">
                 {Object.values(personalFoods).map(food => (
                   <div 
-                    key={food.id}
+                    {searchResults.map((food, index) => ( <div key={food.id || `${food.name}-${index}`} /* ... */> {/* ... */}  </div> ))}
                     onClick={() => addFromPersonalFoods(food)}
                     className="personal-food-item"
                   >
@@ -1106,7 +1122,7 @@ const saveEditedConsumption = () => {
                 const isPersonalFood = personalFoods[food.id];
                 return (
                   <div 
-                    key={food.id}
+                    {searchResults.map((food, index) => ( <div key={food.id || `${food.name}-${index}`} /* ... */> {/* ... */}  </div> ))}
                     onClick={() => handleFoodSelect(food)}
                     className="result-item"
                   >
@@ -1169,7 +1185,7 @@ const saveEditedConsumption = () => {
               <div key={group} style={{ marginBottom: '16px' }}>
                 <div className="group-header-consumed">
                   {foods.map((food) => (
-  <div key={food.id} className="consumed-item">
+  <div {searchResults.map((food, index) => ( <div key={food.id || `${food.name}-${index}`} /* ... */> {/* ... */}  </div> ))} className="consumed-item">
     <div className="consumed-info">
       <div className="consumed-name">
         {food.name}
