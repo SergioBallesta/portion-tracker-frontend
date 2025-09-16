@@ -828,7 +828,7 @@ const PortionTracker = () => {
         </div>
       </div>
     );
-  }
+}}
 
   // Pantalla de configuracion
   if (showSetup) {
