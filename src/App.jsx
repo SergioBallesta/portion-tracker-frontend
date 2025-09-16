@@ -688,7 +688,7 @@ const PortionTracker = () => {
             </div>
           </div>
 
-          {showLogin ? (
+          {showLogin && (
             <form onSubmit={handleLogin}>
               <div style={{ marginBottom: '20px' }}>
                 <label style={{ 
@@ -828,7 +828,7 @@ const PortionTracker = () => {
         </div>
       </div>
     );
-}}
+}
 
   // Pantalla de configuracion
   if (showSetup) {
@@ -2116,5 +2116,5 @@ const PortionTracker = () => {
   );
 };
 
-export default PortionTracker;block', 
+export default PortionTracker;
                   
