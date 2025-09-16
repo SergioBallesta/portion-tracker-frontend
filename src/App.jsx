@@ -1,567 +1,2120 @@
-import React, { useState, useEffect, useRef } from 'react';
-import {
-  Plus,
-  Search,
-  Trash2,
-  Settings,
-  Utensils,
-  AlertCircle,
-  Edit3,
-  Save,
-  X,
-  Scale,
-  Activity,
-  Download,
-  Upload,
-  LogOut,
-  User,
-  Eye,
-  EyeOff
-} from 'lucide-react';
-import './App.css';
+import React, { useState, useEffect } from 'react';
+import { Plus, Search, Trash2, Settings, Utensils, AlertCircle, Clock, Target, Edit3, Save, X, Scale, Activity, BarChart3, Download, Upload, LogOut, User, Eye, EyeOff } from 'lucide-react';
 
-/**
- * App.jsx (arreglado)
- * - UI completa + autenticacion + reseteo diario a las 00:00
- * - Limpia caracteres raros, pequenos arreglos de logica y robustez SSR
- */
-
-const API_BASE = '/api';
-
-const STORAGE_KEYS = {
-  SEARCH_HISTORY: 'searchHistory',
-  LAST_DAY_CHECK: 'lastDayCheck',
-  AUTH_TOKEN: 'auth_token'
-};
-
-const foodGroups = {
-  carbohidratos: { name: 'Carbohidratos', icon: 'C', defaultGrams: 30 },
-  proteinas: { name: 'Proteinas', icon: 'P', defaultGrams: 100 },
-  protegrasa: { name: 'Protegrasa', icon: 'PG', defaultGrams: 30 },
-  grasas: { name: 'Grasas', icon: 'G', defaultGrams: 10 },
-  frutas: { name: 'Frutas', icon: 'F', defaultGrams: 150 },
-  lacteos: { name: 'Lacteos', icon: 'L', defaultGrams: 250 }
-};
-
-// --- Helpers seguros para SSR ---
-const hasWindow = typeof window !== 'undefined';
-const ls = hasWindow ? window.localStorage : null;
-
-// Auth helpers
-const getAuthToken = () => (ls ? ls.getItem(STORAGE_KEYS.AUTH_TOKEN) : null);
-const setAuthToken = (token) => { if (ls) ls.setItem(STORAGE_KEYS.AUTH_TOKEN, token); };
-const removeAuthToken = () => { if (ls) ls.removeItem(STORAGE_KEYS.AUTH_TOKEN); };
-const authHeaders = () => ({ 'Content-Type': 'application/json', Authorization: `Bearer ${getAuthToken() || ''}` });
-
-// Storage helpers
-const saveToStorage = (key, data) => { try { ls?.setItem(key, JSON.stringify(data)); } catch {/* ignore */} };
-const loadFromStorage = (key, def = []) => { try { const v = ls?.getItem(key); return v ? JSON.parse(v) : def; } catch { return def; } };
-
-export default function App() {
-  // -------------------- Auth --------------------
+const PortionTracker = () => {
+  // Estados de autenticacion
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [user, setUser] = useState(null);
   const [showLogin, setShowLogin] = useState(true);
   const [authLoading, setAuthLoading] = useState(false);
   const [authError, setAuthError] = useState('');
   const [showPassword, setShowPassword] = useState(false);
+  
+  // Formularios de autenticacion
   const [loginData, setLoginData] = useState({ email: '', password: '' });
   const [registerData, setRegisterData] = useState({ email: '', password: '', confirmPassword: '' });
 
-  // -------------------- App State --------------------
+  // Estados existentes de la aplicacion
+  const [showEditConsumption, setShowEditConsumption] = useState(false);
+  const [editingConsumption, setEditingConsumption] = useState(null);
+  const [newConsumedGrams, setNewConsumedGrams] = useState(100);
+  const [showEditFood, setShowEditFood] = useState(false);
+  const [editingFood, setEditingFood] = useState(null);
+  const [newStandardGrams, setNewStandardGrams] = useState(100);
+  const [searchTerm, setSearchTerm] = useState('');
+  const [searchResults, setSearchResults] = useState([]);
+  const [isSearching, setIsSearching] = useState(false);
   const [backendStatus, setBackendStatus] = useState('checking');
   const [error, setError] = useState('');
-
   const [showSetup, setShowSetup] = useState(false);
+  const [currentMeal, setCurrentMeal] = useState(0);
+  const [showCategoryModal, setShowCategoryModal] = useState(false);
+  const [selectedFood, setSelectedFood] = useState(null);
+  const [portionGrams, setPortionGrams] = useState(100);
+  const [showStats, setShowStats] = useState(false);
+  
+  // Estados de datos
+  const [personalFoods, setPersonalFoods] = useState({});
+  const [showPersonalFoods, setShowPersonalFoods] = useState(false);
   const [mealCount, setMealCount] = useState(3);
   const [mealNames, setMealNames] = useState(['Desayuno', 'Almuerzo', 'Cena']);
   const [portionDistribution, setPortionDistribution] = useState({});
   const [isEditingMeal, setIsEditingMeal] = useState(-1);
   const [tempMealName, setTempMealName] = useState('');
-
-  const [personalFoods, setPersonalFoods] = useState({});
-  const [showPersonalFoods, setShowPersonalFoods] = useState(false);
-  const [currentMeal, setCurrentMeal] = useState(0);
   const [consumedFoods, setConsumedFoods] = useState({});
 
-  const [searchTerm, setSearchTerm] = useState('');
-  const [isSearching, setIsSearching] = useState(false);
-  const [searchResults, setSearchResults] = useState([]);
-  const [searchHistory, setSearchHistory] = useState(loadFromStorage(STORAGE_KEYS.SEARCH_HISTORY, []));
+  // URL del backend
+  const API_BASE = "/api";
 
-  const [showCategoryModal, setShowCategoryModal] = useState(false);
-  const [selectedFood, setSelectedFood] = useState(null);
-  const [portionGrams, setPortionGrams] = useState(100);
-  const [showEditConsumption, setShowEditConsumption] = useState(false);
-  const [editingConsumption, setEditingConsumption] = useState(null);
-  const [newConsumedGrams, setNewConsumedGrams] = useState(100);
+  // Token de autenticacion
+  const getAuthToken = () => localStorage.getItem('auth_token');
+  const setAuthToken = (token) => localStorage.setItem('auth_token', token);
+  const removeAuthToken = () => localStorage.removeItem('auth_token');
 
-  // Header extras
-  const [midnightCountdown, setMidnightCountdown] = useState('');
-  const importInputRefMain = useRef(null);
-  const importInputRefSetup = useRef(null);
+  // Headers con autenticacion
+  const getAuthHeaders = () => ({
+    'Content-Type': 'application/json',
+    'Authorization': `Bearer ${getAuthToken()}`
+  });
 
+  // Grupos de alimentos
+  const foodGroups = {
+    carbohidratos: { name: 'Carbohidratos', color: 'bg-blue-100 border-blue-300 text-blue-800', icon: 'C', defaultGrams: 30 },
+    proteinas: { name: 'Proteinas', color: 'bg-indigo-100 border-indigo-300 text-indigo-800', icon: 'P', defaultGrams: 100 },  
+    protegrasa: { name: 'Protegrasa', color: 'bg-purple-100 border-purple-300 text-purple-800', icon: 'PG', defaultGrams: 30 },
+    grasas: { name: 'Grasas', color: 'bg-cyan-100 border-cyan-300 text-cyan-800', icon: 'G', defaultGrams: 10 },
+    frutas: { name: 'Frutas', color: 'bg-sky-100 border-sky-300 text-sky-800', icon: 'F', defaultGrams: 150 },
+    lacteos: { name: 'Lacteos', color: 'bg-teal-100 border-teal-300 text-teal-800', icon: 'L', defaultGrams: 250 }
+  };
+
+  // Verificar autenticacion al cargar
   useEffect(() => {
-    const boot = async () => {
-      checkBackendHealth();
+    const checkAuth = async () => {
       const token = getAuthToken();
-      if (!token) return;
-      try {
-        const me = await fetch(`${API_BASE}/auth/me`, { headers: authHeaders() });
-        if (me.ok) {
-          const userData = await me.json();
-          setUser(userData);
-          setIsAuthenticated(true);
-          await loadUserData();
-        } else {
+      if (token) {
+        try {
+          const response = await fetch(`${API_BASE}/auth/me`, {
+            headers: getAuthHeaders()
+          });
+          
+          if (response.ok) {
+            const userData = await response.json();
+            setUser(userData);
+            setIsAuthenticated(true);
+            await loadUserData();
+          } else {
+            removeAuthToken();
+          }
+        } catch (error) {
+          console.error('Error verificando autenticacion:', error);
           removeAuthToken();
         }
-      } catch { removeAuthToken(); }
+      }
     };
-    boot();
+
+    checkAuth();
+    checkBackendHealth();
   }, []);
 
-  // Health
-  async function checkBackendHealth() {
+  // Cargar datos del usuario autenticado
+  const loadUserData = async () => {
     try {
-      const r = await fetch(`${API_BASE}/health`);
-      await r.json().catch(() => null);
-      if (r.ok) { setBackendStatus('connected'); setError(''); } else { setBackendStatus('error'); setError('Error de servidor'); }
-    } catch { setBackendStatus('offline'); setError('Servidor offline'); }
-  }
+      // Cargar perfil de usuario
+      const profileResponse = await fetch(`${API_BASE}/user/profile`, {
+        headers: getAuthHeaders()
+      });
 
-  // Load & Save user data
-  async function loadUserData() {
-    try {
-      const pr = await fetch(`${API_BASE}/user/profile`, { headers: authHeaders() });
-      if (pr.ok) {
-        const profile = await pr.json();
+      if (profileResponse.ok) {
+        const profile = await profileResponse.json();
         setMealNames(profile.meal_names || ['Desayuno', 'Almuerzo', 'Cena']);
         setMealCount(profile.meal_count || 3);
         setPortionDistribution(profile.portion_distribution || {});
         setPersonalFoods(profile.personal_foods || {});
       }
-      const today = new Date().toISOString().split('T')[0];
-      const cr = await fetch(`${API_BASE}/user/consumed-foods/${today}`, { headers: authHeaders() });
-      if (cr.ok) {
-        const data = await cr.json();
-        setConsumedFoods(data.consumed_foods || {});
-      }
-      if (Object.keys(portionDistribution).length === 0) initializePortionDistribution(mealCount);
-      if (Object.keys(consumedFoods).length === 0) initializeConsumedFoods(mealCount);
-    } catch (e) { console.error('loadUserData', e); }
-  }
 
-  async function saveUserProfile(partial) {
+      // Cargar alimentos consumidos del dia actual
+      const today = new Date().toISOString().split('T')[0];
+      const consumedResponse = await fetch(`${API_BASE}/user/consumed-foods/${today}`, {
+        headers: getAuthHeaders()
+      });
+
+      if (consumedResponse.ok) {
+        const consumedData = await consumedResponse.json();
+        setConsumedFoods(consumedData.consumed_foods || {});
+      }
+
+      // Inicializar datos si estan vacios
+      initializeUserData();
+    } catch (error) {
+      console.error('Error cargando datos del usuario:', error);
+    }
+  };
+
+  // Inicializar datos de usuario
+  const initializeUserData = () => {
+    if (Object.keys(portionDistribution).length === 0) {
+      initializePortionDistribution();
+    }
+    if (Object.keys(consumedFoods).length === 0) {
+      initializeConsumedFoods();
+    }
+  };
+
+  // Guardar perfil de usuario
+  const saveUserProfile = async (profileData) => {
     try {
-      const payload = {
+      const response = await fetch(`${API_BASE}/user/profile`, {
+        method: 'PUT',
+        headers: getAuthHeaders(),
+        body: JSON.stringify(profileData)
+      });
+
+      if (!response.ok) {
+        throw new Error('Error guardando perfil');
+      }
+    } catch (error) {
+      console.error('Error guardando perfil:', error);
+    }
+  };
+
+  // Guardar alimentos consumidos
+  const saveConsumedFoods = async (consumedData) => {
+    try {
+      const today = new Date().toISOString().split('T')[0];
+      const response = await fetch(`${API_BASE}/user/consumed-foods`, {
+        method: 'POST',
+        headers: getAuthHeaders(),
+        body: JSON.stringify({
+          date: today,
+          consumed_foods: consumedData
+        })
+      });
+
+      if (!response.ok) {
+        throw new Error('Error guardando alimentos consumidos');
+      }
+    } catch (error) {
+      console.error('Error guardando alimentos consumidos:', error);
+    }
+  };
+
+  // Auto-guardar cuando cambian los datos
+  useEffect(() => {
+    if (isAuthenticated && user) {
+      const profileData = {
         meal_names: mealNames,
         meal_count: mealCount,
         portion_distribution: portionDistribution,
-        personal_foods: personalFoods,
-        ...(partial || {})
+        personal_foods: personalFoods
       };
-      const r = await fetch(`${API_BASE}/user/profile`, { method: 'PUT', headers: authHeaders(), body: JSON.stringify(payload) });
-      if (!r.ok) throw new Error('Error guardando perfil');
-    } catch (e) { console.error(e); }
-  }
+      saveUserProfile(profileData);
+    }
+  }, [mealNames, mealCount, portionDistribution, personalFoods, isAuthenticated]);
 
-  async function saveConsumed(consumed) {
+  useEffect(() => {
+    if (isAuthenticated && user && Object.keys(consumedFoods).length > 0) {
+      saveConsumedFoods(consumedFoods);
+    }
+  }, [consumedFoods, isAuthenticated]);
+
+  // Funciones de autenticacion
+  const handleLogin = async (e) => {
+    e.preventDefault();
+    setAuthLoading(true);
+    setAuthError('');
+
     try {
-      const today = new Date().toISOString().split('T')[0];
-      const r = await fetch(`${API_BASE}/user/consumed-foods`, { method: 'POST', headers: authHeaders(), body: JSON.stringify({ date: today, consumed_foods: consumed }) });
-      if (!r.ok) throw new Error('Error guardando consumidos');
-    } catch (e) { console.error(e); }
-  }
+      const response = await fetch(`${API_BASE}/auth/login`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(loginData)
+      });
 
-  useEffect(() => { if (isAuthenticated && user) saveUserProfile(); }, [isAuthenticated, user, mealNames, mealCount, portionDistribution, personalFoods]);
-  useEffect(() => { if (isAuthenticated && user && Object.keys(consumedFoods).length > 0) saveConsumed(consumedFoods); }, [isAuthenticated, user, consumedFoods]);
+      const data = await response.json();
 
-  // Reset diario
-  useEffect(() => {
-    if (!isAuthenticated) return;
-    const checkNewDay = () => {
-      const today = new Date().toDateString();
-      const last = ls?.getItem(STORAGE_KEYS.LAST_DAY_CHECK);
-      if (last && last !== today) {
-        const consumed = {}; for (let i = 0; i < mealCount; i++) { consumed[i] = {}; Object.keys(foodGroups).forEach((g) => (consumed[i][g] = [])); }
-        setConsumedFoods(consumed);
+      if (response.ok) {
+        setAuthToken(data.token);
+        setUser(data.user);
+        setIsAuthenticated(true);
+        setLoginData({ email: '', password: '' });
+        await loadUserData();
+      } else {
+        setAuthError(data.error || 'Error en el login');
       }
-      ls?.setItem(STORAGE_KEYS.LAST_DAY_CHECK, today);
-    };
-    checkNewDay();
-    const id = setInterval(checkNewDay, 60000);
-    return () => clearInterval(id);
-  }, [isAuthenticated, mealCount]);
+    } catch (error) {
+      setAuthError('Error de conexion con el servidor');
+    } finally {
+      setAuthLoading(false);
+    }
+  };
 
-  // Countdown header
-  function formatCountdown(ms) {
-    const totalSec = Math.max(0, Math.floor(ms / 1000));
-    const h = String(Math.floor(totalSec / 3600)).padStart(2, '0');
-    const m = String(Math.floor((totalSec % 3600) / 60)).padStart(2, '0');
-    const s = String(totalSec % 60).padStart(2, '0');
-    return `${h}:${m}:${s}`;
-  }
+  const handleRegister = async (e) => {
+    e.preventDefault();
+    setAuthLoading(true);
+    setAuthError('');
+
+    if (registerData.password !== registerData.confirmPassword) {
+      setAuthError('Las contrasenas no coinciden');
+      setAuthLoading(false);
+      return;
+    }
+
+    if (registerData.password.length < 6) {
+      setAuthError('La contrasena debe tener al menos 6 caracteres');
+      setAuthLoading(false);
+      return;
+    }
+
+    try {
+      const response = await fetch(`${API_BASE}/auth/register`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          email: registerData.email,
+          password: registerData.password
+        })
+      });
+
+      const data = await response.json();
+
+      if (response.ok) {
+        setAuthToken(data.token);
+        setUser(data.user);
+        setIsAuthenticated(true);
+        setRegisterData({ email: '', password: '', confirmPassword: '' });
+        await loadUserData();
+      } else {
+        setAuthError(data.error || 'Error en el registro');
+      }
+    } catch (error) {
+      setAuthError('Error de conexion con el servidor');
+    } finally {
+      setAuthLoading(false);
+    }
+  };
+
+  const handleLogout = () => {
+    removeAuthToken();
+    setUser(null);
+    setIsAuthenticated(false);
+    setShowLogin(true);
+    // Limpiar estados
+    setPersonalFoods({});
+    setConsumedFoods({});
+    setPortionDistribution({});
+    setMealNames(['Desayuno', 'Almuerzo', 'Cena']);
+    setMealCount(3);
+    setCurrentMeal(0);
+  };
+
+  // Verificar si es un nuevo dia y limpiar consumidos
   useEffect(() => {
-    const tick = () => {
-      const now = new Date();
-      const midnight = new Date(now); midnight.setHours(24, 0, 0, 0);
-      setMidnightCountdown(formatCountdown(midnight - now));
-    };
-    tick(); const id = setInterval(tick, 1000); return () => clearInterval(id);
-  }, []);
+    if (isAuthenticated) {
+      const checkNewDay = () => {
+        const today = new Date().toDateString();
+        const lastCheck = localStorage.getItem('lastDayCheck');
+        
+        if (lastCheck && lastCheck !== today) {
+          // Es un nuevo dia, limpiar consumidos
+          setConsumedFoods({});
+          initializeConsumedFoods();
+        }
+        
+        localStorage.setItem('lastDayCheck', today);
+      };
 
-  // Utils
-  function initializePortionDistribution(count = mealCount) { const d = {}; Object.keys(foodGroups).forEach((g) => (d[g] = Array(count).fill(0))); setPortionDistribution(d); }
-  function initializeConsumedFoods(count = mealCount) { const c = {}; for (let i = 0; i < count; i++) { c[i] = {}; Object.keys(foodGroups).forEach((g) => (c[i][g] = [])); } setConsumedFoods(c); }
-  function exportData() { const today = new Date().toDateString(); const dump = { mealConfig: { mealNames, mealCount }, portionDistribution, personalFoods, consumedFoods, searchHistory, exportDate: today, version: '2.0' }; const blob = new Blob([JSON.stringify(dump, null, 2)], { type: 'application/json' }); const url = URL.createObjectURL(blob); const a = document.createElement('a'); a.href = url; a.download = `portion-tracker-backup-${today.replace(/\s/g, '-')}.json`; a.click(); URL.revokeObjectURL(url); }
-  function importData(file) { const reader = new FileReader(); reader.onload = (e) => { try { const data = JSON.parse(e.target.result); if (data.mealConfig) { setMealNames(data.mealConfig.mealNames || mealNames); setMealCount(data.mealConfig.mealCount || mealCount); } if (data.portionDistribution) setPortionDistribution(data.portionDistribution); if (data.personalFoods) setPersonalFoods(data.personalFoods); alert('Datos importados'); } catch (err) { alert('Error al importar: ' + err.message); } }; reader.readAsText(file); }
-  function resetTodayData() { if (!window.confirm('?Seguro que quieres reiniciar los datos de hoy?')) return; const consumed = {}; for (let i = 0; i < mealCount; i++) { consumed[i] = {}; Object.keys(foodGroups).forEach((g) => (consumed[i][g] = [])); } setConsumedFoods(consumed); setCurrentMeal(0); }
+      checkNewDay();
+      
+      // Verificar cada minuto si cambio el dia
+      const interval = setInterval(checkNewDay, 60000);
+      return () => clearInterval(interval);
+    }
+  }, [isAuthenticated]);
 
-  // Search
-  useEffect(() => { const t = setTimeout(() => { if (searchTerm.trim().length >= 2) searchFoodsAPI(searchTerm.trim()); else { setSearchResults([]); setIsSearching(false); } }, 500); return () => clearTimeout(t); }, [searchTerm, backendStatus]);
-  function toNum(v) { if (v == null) return null; const n = parseFloat(String(v).replace(',', '.')); return Number.isNaN(n) ? null : Math.round(n * 10) / 10; }
-  function normalizeFoods(data) { let list = []; if (Array.isArray(data)) list = data; else if (Array.isArray(data?.foods)) list = data.foods; else if (Array.isArray(data?.results)) list = data.results; else if (Array.isArray(data?.foods?.food)) list = data.foods.food; else if (data?.foods?.food) list = [data.foods.food]; return list.map((f, idx) => ({ id: `fs_${f.id ?? f.food_id ?? f.foodId ?? f.code ?? idx}`, name: f.name ?? f.food_name ?? f.description ?? `Alimento ${idx + 1}`, calories: toNum(f.calories ?? f.kcal ?? f.energy_kcal), protein: toNum(f.protein ?? f.proteins ?? f.protein_g), carbs: toNum(f.carbs ?? f.carbohydrates ?? f.carbs_g), fat: toNum(f.fat ?? f.fats ?? f.fat_g), brand: f.brand ?? f.brand_name ?? '', type: 'API', description: f.description ?? '', isFromAPI: true })); }
-  async function searchFoodsAPI(term) { if (backendStatus !== 'connected') { setError('Backend no conectado'); return; } setIsSearching(true); setError(''); try { let r = await fetch(`${API_BASE}/search`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ query: term, maxResults: 15 }) }); if (!r.ok && (r.status === 404 || r.status === 405)) r = await fetch(`${API_BASE}/test-search/${encodeURIComponent(term)}`); if (r.ok) { const data = await r.json(); const processed = normalizeFoods(data); setSearchResults(processed); const newHistory = [{ term, timestamp: Date.now(), resultCount: processed.length }, ...searchHistory.filter((h) => h.term !== term)].slice(0, 10); setSearchHistory(newHistory); saveToStorage(STORAGE_KEYS.SEARCH_HISTORY, newHistory); } else { setSearchResults([]); setError(`Error en busqueda: ${r.status}`); } } catch (e) { setSearchResults([]); setError(`Error de conexion: ${e.message}`); } finally { setIsSearching(false); } }
-  async function getFoodDetails(foodId) { if (backendStatus !== 'connected' || !foodId.startsWith('fs_')) return null; try { const clean = foodId.replace('fs_', ''); let r = await fetch(`${API_BASE}/food/${clean}`); if (r.status === 404 || r.status === 405) r = await fetch(`${API_BASE}/food/${clean}`, { method: 'POST' }); if (r.ok) return r.json(); } catch {} return null; }
+  // Resto de funciones existentes
+  const checkBackendHealth = async () => {
+    try {
+      const response = await fetch(`${API_BASE}/health`);
+      const data = await response.json();
 
-  // Foods / portions
-  function addMeal() { const nc = mealCount + 1; setMealCount(nc); setMealNames([...mealNames, `Comida ${nc}`]); setPortionDistribution((prev) => { const nd = { ...prev }; Object.keys(foodGroups).forEach((g) => { nd[g] = [...(nd[g] || []), 0]; }); return nd; }); }
-  function removeMeal(index) { if (mealCount <= 1) return; setMealNames(mealNames.filter((_, i) => i !== index)); setMealCount(mealCount - 1); const newDist = { ...portionDistribution }; Object.keys(newDist).forEach((g) => newDist[g].splice(index, 1)); setPortionDistribution(newDist); const newConsumed = { ...consumedFoods }; delete newConsumed[index]; const reindexed = {}; Object.keys(newConsumed).sort((a,b)=>a-b).forEach((k) => { const i = parseInt(k,10); reindexed[i < index ? i : i - 1] = newConsumed[k]; }); setConsumedFoods(reindexed); if (currentMeal >= mealCount - 1) setCurrentMeal(Math.max(0, mealCount - 2)); }
-  function startEditingMeal(index) { setIsEditingMeal(index); setTempMealName(mealNames[index]); }
-  function saveMealName() { const names = [...mealNames]; names[isEditingMeal] = tempMealName || `Comida ${isEditingMeal + 1}`; setMealNames(names); setIsEditingMeal(-1); setTempMealName(''); }
-  function updatePortionDistribution(group, mealIndex, value) { const nd = { ...portionDistribution }; if (!nd[group]) nd[group] = Array(mealCount).fill(0); nd[group][mealIndex] = Math.max(0, parseInt(value) || 0); setPortionDistribution(nd); }
-  function addFoodToCurrent(food) { const newConsumed = { ...consumedFoods }; if (!newConsumed[currentMeal][food.group]) newConsumed[currentMeal][food.group] = []; newConsumed[currentMeal][food.group].push({ id: Date.now(), ...food, timestamp: new Date().toLocaleTimeString() }); setConsumedFoods(newConsumed); }
-  async function handleFoodSelect(food) { const existing = personalFoods[food.id]; if (existing) { addFoodToCurrent(existing); } else { if (food.isFromAPI && (!food.calories || !food.protein)) { const details = await getFoodDetails(food.id); if (details && details.food) food = { ...food, ...details.food }; } setSelectedFood(food); setPortionGrams(foodGroups.carbohidratos.defaultGrams); setShowCategoryModal(true); } setSearchTerm(''); setSearchResults([]); }
-  function assignFoodCategory(category) { if (!selectedFood) return; const categorized = { ...selectedFood, group: category, gramsPerPortion: portionGrams, standardPortionGrams: portionGrams, calories: selectedFood.calories || 100, protein: selectedFood.protein || 0, carbs: selectedFood.carbs || 0, fat: selectedFood.fat || 0, fiber: selectedFood.fiber || 0 }; const newPF = { ...personalFoods, [selectedFood.id]: categorized }; setPersonalFoods(newPF); addFoodToCurrent(categorized); setShowCategoryModal(false); setSelectedFood(null); }
-  function startEditingConsumption(food, mealIndex, groupName) { setEditingConsumption({ food, mealIndex, groupName }); setNewConsumedGrams(food.actualGrams || food.gramsPerPortion || food.standardPortionGrams); setShowEditConsumption(true); }
-  function saveEditedConsumption() { if (!editingConsumption) return; const { food, mealIndex, groupName } = editingConsumption; const newConsumed = { ...consumedFoods }; const idx = newConsumed[mealIndex][groupName].findIndex((f) => f.id === food.id); if (idx !== -1) { newConsumed[mealIndex][groupName][idx] = { ...food, actualGrams: newConsumedGrams, gramsPerPortion: newConsumedGrams }; } setConsumedFoods(newConsumed); setShowEditConsumption(false); setEditingConsumption(null); }
-  function removeFood(mealIndex, group, foodId) { const newConsumed = { ...consumedFoods }; newConsumed[mealIndex][group] = newConsumed[mealIndex][group].filter((f) => f.id !== foodId); setConsumedFoods(newConsumed); }
+      if (response.ok) {
+        setBackendStatus('connected');
+        setError('');
+      } else {
+        setBackendStatus('error');
+        setError('Error de servidor');
+      }
+    } catch (err) {
+      setBackendStatus('offline');
+      setError('Servidor offline');
+    }
+  };
 
-  function getRemainingPortions(mealIndex, group) { const planned = portionDistribution[group]?.[mealIndex] || 0; let consumed = 0; if (consumedFoods[mealIndex]?.[group]) { consumedFoods[mealIndex][group].forEach((f) => { const actual = f.actualGrams || f.gramsPerPortion; const standard = f.standardPortionGrams || f.gramsPerPortion; consumed += actual / standard; }); } return Math.max(0, planned - consumed); }
-  function getTotalConsumedPortions(group) { let total = 0; Object.values(consumedFoods).forEach((meal) => { if (meal[group]) { meal[group].forEach((f) => { const a = f.actualGrams || f.gramsPerPortion; const s = f.standardPortionGrams || f.gramsPerPortion; total += a / s; }); } }); return Math.round(total * 10) / 10; }
-  function getTotalPlannedPortions(group) { return portionDistribution[group]?.reduce((s, p) => s + p, 0) || 0; }
-  function getMealCalories(mealIndex) { let total = 0; Object.values(consumedFoods[mealIndex] || {}).forEach((foods) => { foods.forEach((f) => { const grams = (f.actualGrams ?? f.gramsPerPortion ?? 100); const calories = (f.calories || 0) * grams / 100; total += calories; }); }); return Math.round(total); }
-  function getDailyCalories() { let t = 0; for (let i = 0; i < mealCount; i++) t += getMealCalories(i); return t; }
+  const initializePortionDistribution = () => {
+    const distribution = {};
+    Object.keys(foodGroups).forEach(group => {
+      distribution[group] = Array(mealCount).fill(0);
+    });
+    setPortionDistribution(distribution);
+  };
 
-  // Auth actions
-  async function handleLogin(e) { e.preventDefault(); setAuthLoading(true); setAuthError(''); try { const r = await fetch(`${API_BASE}/auth/login`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(loginData) }); const data = await r.json(); if (r.ok) { setAuthToken(data.token); setUser(data.user); setIsAuthenticated(true); setLoginData({ email: '', password: '' }); await loadUserData(); setShowSetup(true); } else { setAuthError(data.error || 'Error en el inicio de sesion'); } } catch { setAuthError('Error de conexion con el servidor'); } finally { setAuthLoading(false); } }
-  async function handleRegister(e) { e.preventDefault(); setAuthLoading(true); setAuthError(''); if (registerData.password !== registerData.confirmPassword) { setAuthError('Las contrasenas no coinciden'); setAuthLoading(false); return; } if (registerData.password.length < 6) { setAuthError('La contrasena debe tener al menos 6 caracteres'); setAuthLoading(false); return; } try { const r = await fetch(`${API_BASE}/auth/register`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ email: registerData.email, password: registerData.password }) }); const data = await r.json(); if (r.ok) { setAuthToken(data.token); setUser(data.user); setIsAuthenticated(true); setRegisterData({ email: '', password: '', confirmPassword: '' }); await loadUserData(); setShowSetup(true); } else { setAuthError(data.error || 'Error en el registro'); } } catch { setAuthError('Error de conexion con el servidor'); } finally { setAuthLoading(false); } }
-  function handleLogout() { removeAuthToken(); setUser(null); setIsAuthenticated(false); setShowLogin(true); setPersonalFoods({}); setConsumedFoods({}); setPortionDistribution({}); setMealNames(['Desayuno', 'Almuerzo', 'Cena']); setMealCount(3); setCurrentMeal(0); }
+  const initializeConsumedFoods = () => {
+    const consumed = {};
+    for (let i = 0; i < mealCount; i++) {
+      consumed[i] = {};
+      Object.keys(foodGroups).forEach(group => {
+        consumed[i][group] = [];
+      });
+    }
+    setConsumedFoods(consumed);
+  };
 
-  // -------------------- UI: Auth --------------------
+  const searchFoodsAPI = async (term) => {
+    if (!term || term.length < 2) {
+      setSearchResults([]);
+      return;
+    }
+
+    setIsSearching(true);
+    setError('');
+
+    try {
+      if (backendStatus === 'connected') {
+        const response = await fetch(`${API_BASE}/search`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ query: term, maxResults: 15 })
+        });
+
+        if (response.ok) {
+          const data = await response.json();
+          const processed = normalizeFoods(data);
+          setSearchResults(processed);
+        } else {
+          setSearchResults([]);
+          setError(`Error en busqueda: ${response.status}`);
+        }
+      } else {
+        setSearchResults([]);
+        setError('Backend no conectado');
+      }
+    } catch (err) {
+      setSearchResults([]);
+      setError(`Error de conexion: ${err.message}`);
+    } finally {
+      setIsSearching(false);
+    }
+  };
+
+  const normalizeFoods = (data) => {
+    let list = [];
+    if (Array.isArray(data)) list = data;
+    else if (Array.isArray(data?.foods)) list = data.foods;
+    else if (Array.isArray(data?.foods?.food)) list = data.foods.food;
+    else if (data?.foods?.food) list = [data.foods.food];
+
+    return list.map((f, idx) => ({
+      id: `fs_${f.id ?? f.food_id ?? f.foodId ?? idx}`,
+      name: f.name ?? f.food_name ?? `Alimento ${idx + 1}`,
+      calories: parseFloat(f.calories ?? f.kcal) || null,
+      protein: parseFloat(f.protein ?? f.proteins) || null,
+      carbs: parseFloat(f.carbs ?? f.carbohydrates) || null,
+      fat: parseFloat(f.fat ?? f.fats) || null,
+      brand: f.brand ?? f.brand_name ?? '',
+      type: 'API',
+      description: f.description ?? '',
+      isFromAPI: true
+    }));
+  };
+
+  useEffect(() => {
+    const timeoutId = setTimeout(() => {
+      if (searchTerm.length >= 2) {
+        searchFoodsAPI(searchTerm);
+      } else {
+        setSearchResults([]);
+        setIsSearching(false);
+      }
+    }, 500);
+
+    return () => clearTimeout(timeoutId);
+  }, [searchTerm, backendStatus]);
+
+  const handleFoodSelect = async (food) => {
+    const existingFood = personalFoods[food.id];
+    if (existingFood) {
+      addFood(existingFood);
+    } else {
+      setSelectedFood(food);
+      setPortionGrams(foodGroups.carbohidratos.defaultGrams);
+      setShowCategoryModal(true);
+    }
+    setSearchTerm('');
+    setSearchResults([]);
+  };
+
+  const assignFoodCategory = (category) => {
+    if (selectedFood) {
+      const categorizedFood = {
+        ...selectedFood,
+        group: category,
+        gramsPerPortion: portionGrams,
+        standardPortionGrams: portionGrams,
+        calories: selectedFood.calories || 100,
+        protein: selectedFood.protein || 0,
+        carbs: selectedFood.carbs || 0,
+        fat: selectedFood.fat || 0,
+        fiber: selectedFood.fiber || 0
+      };
+      
+      const newPersonalFoods = {
+        ...personalFoods,
+        [selectedFood.id]: categorizedFood
+      };
+      setPersonalFoods(newPersonalFoods);
+      
+      addFood(categorizedFood);
+      setShowCategoryModal(false);
+      setSelectedFood(null);
+    }
+  };
+
+  const addFood = (food) => {
+    const newConsumed = { ...consumedFoods };
+    if (!newConsumed[currentMeal][food.group]) {
+      newConsumed[currentMeal][food.group] = [];
+    }
+    
+    newConsumed[currentMeal][food.group].push({
+      id: Date.now(),
+      ...food,
+      timestamp: new Date().toLocaleTimeString()
+    });
+    
+    setConsumedFoods(newConsumed);
+  };
+
+  const removeFood = (mealIndex, group, foodId) => {
+    const newConsumed = { ...consumedFoods };
+    newConsumed[mealIndex][group] = newConsumed[mealIndex][group].filter(food => food.id !== foodId);
+    setConsumedFoods(newConsumed);
+  };
+
+  const addMeal = () => {
+    const newCount = mealCount + 1;
+    setMealCount(newCount);
+    setMealNames([...mealNames, `Comida ${newCount}`]);
+  };
+
+  const removeMeal = (index) => {
+    if (mealCount > 1) {
+      const newNames = mealNames.filter((_, i) => i !== index);
+      setMealNames(newNames);
+      setMealCount(mealCount - 1);
+      
+      const newDist = { ...portionDistribution };
+      Object.keys(newDist).forEach(group => {
+        newDist[group].splice(index, 1);
+      });
+      setPortionDistribution(newDist);
+      
+      if (currentMeal >= mealCount - 1) {
+        setCurrentMeal(Math.max(0, mealCount - 2));
+      }
+    }
+  };
+
+  const updatePortionDistribution = (group, mealIndex, value) => {
+    const newDist = { ...portionDistribution };
+    newDist[group][mealIndex] = Math.max(0, parseInt(value) || 0);
+    setPortionDistribution(newDist);
+  };
+
+  const getRemainingPortions = (mealIndex, group) => {
+    const planned = portionDistribution[group]?.[mealIndex] || 0;
+    let consumed = 0;
+    
+    if (consumedFoods[mealIndex]?.[group]) {
+      consumedFoods[mealIndex][group].forEach(food => {
+        const actualGrams = food.actualGrams || food.gramsPerPortion;
+        const standardGrams = food.standardPortionGrams || food.gramsPerPortion;
+        consumed += actualGrams / standardGrams;
+      });
+    }
+    
+    return Math.max(0, planned - consumed);
+  };
+
+  const getTotalConsumedPortions = (group) => {
+    let total = 0;
+    Object.values(consumedFoods).forEach(meal => {
+      if (meal[group]) {
+        meal[group].forEach(food => {
+          const actualGrams = food.actualGrams || food.gramsPerPortion;
+          const standardGrams = food.standardPortionGrams || food.gramsPerPortion;
+          total += actualGrams / standardGrams;
+        });
+      }
+    });
+    return Math.round(total * 10) / 10;
+  };
+
+  const getTotalPlannedPortions = (group) => {
+    return portionDistribution[group]?.reduce((sum, portions) => sum + portions, 0) || 0;
+  };
+
+  const getMealCalories = (mealIndex) => {
+    let totalCalories = 0;
+    Object.values(consumedFoods[mealIndex] || {}).forEach(foods => {
+      foods.forEach(food => {
+        const calories = (food.calories || 0) * (food.gramsPerPortion || 100) / 100;
+        totalCalories += calories;
+      });
+    });
+    return Math.round(totalCalories);
+  };
+
+  const getDailyCalories = () => {
+    let totalCalories = 0;
+    for (let i = 0; i < mealCount; i++) {
+      totalCalories += getMealCalories(i);
+    }
+    return totalCalories;
+  };
+
+  const startEditingMeal = (index) => {
+    setIsEditingMeal(index);
+    setTempMealName(mealNames[index]);
+  };
+
+  const saveMealName = () => {
+    const newNames = [...mealNames];
+    newNames[isEditingMeal] = tempMealName || `Comida ${isEditingMeal + 1}`;
+    setMealNames(newNames);
+    setIsEditingMeal(-1);
+    setTempMealName('');
+  };
+
+  const startEditingConsumption = (food, mealIndex, groupName) => {
+    setEditingConsumption({ food, mealIndex, groupName });
+    setNewConsumedGrams(food.actualGrams || food.gramsPerPortion || food.standardPortionGrams);
+    setShowEditConsumption(true);
+  };
+
+  const saveEditedConsumption = () => {
+    if (editingConsumption) {
+      const { food, mealIndex, groupName } = editingConsumption;
+      const newConsumed = { ...consumedFoods };
+      
+      const foodIndex = newConsumed[mealIndex][groupName].findIndex(f => f.id === food.id);
+      if (foodIndex !== -1) {
+        newConsumed[mealIndex][groupName][foodIndex] = {
+          ...food,
+          actualGrams: newConsumedGrams,
+          gramsPerPortion: newConsumedGrams
+        };
+      }
+      
+      setConsumedFoods(newConsumed);
+      setShowEditConsumption(false);
+      setEditingConsumption(null);
+    }
+  };
+
+  // Pantalla de autenticacion
   if (!isAuthenticated) {
     return (
-      <div className="auth-wrap">
-        <div className="auth-card">
-          <div className="auth-head">
-            <h1>Control de Porciones</h1>
-            <p>Gestiona tu alimentacion de forma inteligente</p>
+      <div style={{ 
+        minHeight: '100vh', 
+        background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+        padding: '20px'
+      }}>
+        <div style={{
+          background: 'white',
+          padding: '40px',
+          borderRadius: '12px',
+          boxShadow: '0 10px 25px rgba(0,0,0,0.1)',
+          width: '100%',
+          maxWidth: '400px'
+        }}>
+          <div style={{ textAlign: 'center', marginBottom: '30px' }}>
+            <h1 style={{ color: '#1f2937', fontSize: '28px', fontWeight: 'bold', marginBottom: '8px' }}>
+              Control de Porciones
+            </h1>
+            <p style={{ color: '#6b7280', fontSize: '14px' }}>
+              Gestiona tu alimentacion de forma inteligente
+            </p>
           </div>
-          {authError && <div className="error-banner">{authError}</div>}
-          <div className="auth-tabs">
-            <button onClick={() => setShowLogin(true)} className={showLogin ? 'active' : ''}>Iniciar sesion</button>
-            <button onClick={() => setShowLogin(false)} className={!showLogin ? 'active' : ''}>Registrarse</button>
+
+          {authError && (
+            <div style={{
+              background: '#fef2f2',
+              border: '1px solid #fecaca',
+              color: '#dc2626',
+              padding: '12px',
+              borderRadius: '8px',
+              marginBottom: '20px',
+              fontSize: '14px',
+              textAlign: 'center'
+            }}>
+              {authError}
+            </div>
+          )}
+
+          <div style={{ marginBottom: '24px' }}>
+            <div style={{ 
+              display: 'flex', 
+              background: '#f3f4f6', 
+              borderRadius: '8px', 
+              padding: '4px' 
+            }}>
+              <button
+                onClick={() => setShowLogin(true)}
+                style={{
+                  flex: 1,
+                  padding: '8px 16px',
+                  background: showLogin ? 'white' : 'transparent',
+                  color: showLogin ? '#1f2937' : '#6b7280',
+                  border: 'none',
+                  borderRadius: '6px',
+                  cursor: 'pointer',
+                  fontSize: '14px',
+                  fontWeight: '500',
+                  boxShadow: showLogin ? '0 1px 3px rgba(0,0,0,0.1)' : 'none'
+                }}
+              >
+                Iniciar Sesion
+              </button>
+              <button
+                onClick={() => setShowLogin(false)}
+                style={{
+                  flex: 1,
+                  padding: '8px 16px',
+                  background: !showLogin ? 'white' : 'transparent',
+                  color: !showLogin ? '#1f2937' : '#6b7280',
+                  border: 'none',
+                  borderRadius: '6px',
+                  cursor: 'pointer',
+                  fontSize: '14px',
+                  fontWeight: '500',
+                  boxShadow: !showLogin ? '0 1px 3px rgba(0,0,0,0.1)' : 'none'
+                }}
+              >
+                Registrarse
+              </button>
+            </div>
           </div>
+
           {showLogin ? (
             <form onSubmit={handleLogin}>
-              <label>Email</label>
-              <input type="email" value={loginData.email} onChange={(e) => setLoginData({ ...loginData, email: e.target.value })} placeholder="tu@email.com" required />
-              <label>Contrasena</label>
-              <div className="password-field">
-                <input type={showPassword ? 'text' : 'password'} value={loginData.password} onChange={(e) => setLoginData({ ...loginData, password: e.target.value })} placeholder="Minimo 6 caracteres" required />
-                <button type="button" onClick={() => setShowPassword(v => !v)}>{showPassword ? <EyeOff size={16} /> : <Eye size={16} />}</button>
+              <div style={{ marginBottom: '20px' }}>
+                <label style={{ 
+                  display: 'block', 
+                  color: '#374151', 
+                  fontSize: '14px', 
+                  fontWeight: '500', 
+                  marginBottom: '6px' 
+                }}>
+                  Email
+                </label>
+                <input
+                  type="email"
+                  value={registerData.email}
+                  onChange={(e) => setRegisterData({...registerData, email: e.target.value})}
+                  style={{
+                    width: '100%',
+                    padding: '12px',
+                    border: '1px solid #d1d5db',
+                    borderRadius: '8px',
+                    fontSize: '14px',
+                    outline: 'none',
+                    boxSizing: 'border-box'
+                  }}
+                  placeholder="tu@email.com"
+                  required
+                />
               </div>
-              <button type="submit" disabled={authLoading} className="btn-primary">{authLoading ? 'Entrando¡K' : 'Entrar'}</button>
-            </form>
-          ) : (
-            <form onSubmit={handleRegister}>
-              <label>Email</label>
-              <input type="email" value={registerData.email} onChange={(e) => setRegisterData({ ...registerData, email: e.target.value })} placeholder="tu@email.com" required />
-              <label>Contrasena</label>
-              <div className="password-field">
-                <input type={showPassword ? 'text' : 'password'} value={registerData.password} onChange={(e) => setRegisterData({ ...registerData, password: e.target.value })} placeholder="Minimo 6 caracteres" required />
-                <button type="button" onClick={() => setShowPassword(v => !v)}>{showPassword ? <EyeOff size={16} /> : <Eye size={16} />}</button>
+              
+              <div style={{ marginBottom: '20px' }}>
+                <label style={{ 
+                  display: 'block', 
+                  color: '#374151', 
+                  fontSize: '14px', 
+                  fontWeight: '500', 
+                  marginBottom: '6px' 
+                }}>
+                  Contrasena
+                </label>
+                <div style={{ position: 'relative' }}>
+                  <input
+                    type={showPassword ? 'text' : 'password'}
+                    value={registerData.password}
+                    onChange={(e) => setRegisterData({...registerData, password: e.target.value})}
+                    style={{
+                      width: '100%',
+                      padding: '12px',
+                      paddingRight: '40px',
+                      border: '1px solid #d1d5db',
+                      borderRadius: '8px',
+                      fontSize: '14px',
+                      outline: 'none',
+                      boxSizing: 'border-box'
+                    }}
+                    placeholder="Minimo 6 caracteres"
+                    required
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setShowPassword(!showPassword)}
+                    style={{
+                      position: 'absolute',
+                      right: '12px',
+                      top: '50%',
+                      transform: 'translateY(-50%)',
+                      background: 'none',
+                      border: 'none',
+                      color: '#6b7280',
+                      cursor: 'pointer'
+                    }}
+                  >
+                    {showPassword ? <EyeOff size={16} /> : <Eye size={16} />}
+                  </button>
+                </div>
               </div>
-              <label>Confirmar contrasena</label>
-              <input type="password" value={registerData.confirmPassword} onChange={(e) => setRegisterData({ ...registerData, confirmPassword: e.target.value })} placeholder="Repite tu contrasena" required />
-              <button type="submit" disabled={authLoading} className="btn-success">{authLoading ? 'Registrando¡K' : 'Crear cuenta'}</button>
+              
+              <div style={{ marginBottom: '24px' }}>
+                <label style={{ 
+                  display: 'block', 
+                  color: '#374151', 
+                  fontSize: '14px', 
+                  fontWeight: '500', 
+                  marginBottom: '6px' 
+                }}>
+                  Confirmar Contrasena
+                </label>
+                <input
+                  type="password"
+                  value={registerData.confirmPassword}
+                  onChange={(e) => setRegisterData({...registerData, confirmPassword: e.target.value})}
+                  style={{
+                    width: '100%',
+                    padding: '12px',
+                    border: '1px solid #d1d5db',
+                    borderRadius: '8px',
+                    fontSize: '14px',
+                    outline: 'none',
+                    boxSizing: 'border-box'
+                  }}
+                  placeholder="Repite tu contrasena"
+                  required
+                />
+              </div>
+              
+              <button
+                type="submit"
+                disabled={authLoading}
+                style={{
+                  width: '100%',
+                  background: authLoading ? '#9ca3af' : '#059669',
+                  color: 'white',
+                  border: 'none',
+                  padding: '12px',
+                  borderRadius: '8px',
+                  fontSize: '16px',
+                  fontWeight: '600',
+                  cursor: authLoading ? 'not-allowed' : 'pointer'
+                }}
+              >
+                {authLoading ? 'Registrando...' : 'Crear Cuenta'}
+              </button>
             </form>
           )}
-          <div className="muted small" style={{ textAlign: 'center', marginTop: 12 }}>{backendStatus === 'connected' ? 'Conectado a la base de datos' : 'Verificando conexion¡K'}</div>
+
+          <div style={{ 
+            textAlign: 'center', 
+            marginTop: '20px', 
+            fontSize: '12px', 
+            color: '#6b7280' 
+          }}>
+            {backendStatus === 'connected' ? (
+              <>Conectado a la base de datos</>
+            ) : (
+              <>Verificando conexion...</>
+            )}
+          </div>
         </div>
       </div>
     );
   }
 
-  // -------------------- UI: Setup --------------------
+  // Pantalla de configuracion
   if (showSetup) {
     return (
-      <div className="app">
-        <div className="header">
-          <div className="header-top">
-            <div className="brand"><h1>Configuracion de Plan</h1></div>
-            <div className="header-actions">
-              <span className="pill"><User size={14} style={{ marginRight: 6 }} />{user?.email}</span>
-              <button onClick={handleLogout} className="header-btn" title="Salir"><LogOut size={18} /></button>
-            </div>
-          </div>
-          <div className="header-stats"><div className="muted">Personaliza tus comidas y porciones</div></div>
-        </div>
-
-        <div className="setup-content">
-          <div className="setup-section">
-            <div className="section-header">
-              <h3>Tus Comidas</h3>
-              <button onClick={addMeal} className="add-meal-btn">+ Anadir</button>
-            </div>
-            {mealNames.map((meal, index) => (
-              <div key={index} className="meal-config">
-                {isEditingMeal === index ? (
-                  <div className="editing-meal">
-                    <input value={tempMealName} onChange={(e) => setTempMealName(e.target.value)} className="meal-name-input" placeholder="Nombre de la comida" />
-                    <button onClick={saveMealName} className="save-btn"><Save size={16} /></button>
-                    <button onClick={() => { setIsEditingMeal(-1); setTempMealName(''); }} className="cancel-btn"><X size={16} /></button>
-                  </div>
-                ) : (
-                  <div className="meal-display">
-                    <span className="meal-name">{meal}</span>
-                    <button onClick={() => startEditingMeal(index)} className="edit-btn"><Edit3 size={16} /></button>
-                    {mealCount > 1 && (<button onClick={() => removeMeal(index)} className="remove-btn"><X size={16} /></button>)}
-                  </div>
-                )}
+      <div style={{
+        minHeight: '100vh',
+        background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
+        padding: '20px'
+      }}>
+        <div style={{
+          maxWidth: '800px',
+          margin: '0 auto',
+          background: 'white',
+          borderRadius: '12px',
+          overflow: 'hidden',
+          boxShadow: '0 10px 25px rgba(0,0,0,0.1)'
+        }}>
+          <div style={{
+            background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
+            color: 'white',
+            padding: '24px',
+            textAlign: 'center'
+          }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px' }}>
+              <h1 style={{ fontSize: '24px', fontWeight: 'bold', margin: 0 }}>Configuracion de Plan</h1>
+              <div style={{ display: 'flex', gap: '8px' }}>
+                <div style={{ display: 'flex', alignItems: 'center', fontSize: '14px' }}>
+                  <User size={16} style={{ marginRight: '4px' }} />
+                  {user?.email}
+                </div>
+                <button
+                  onClick={handleLogout}
+                  style={{
+                    background: 'rgba(255,255,255,0.2)',
+                    border: 'none',
+                    color: 'white',
+                    padding: '6px 12px',
+                    borderRadius: '6px',
+                    cursor: 'pointer',
+                    fontSize: '12px',
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '4px'
+                  }}
+                >
+                  <LogOut size={14} />
+                  Salir
+                </button>
               </div>
-            ))}
+            </div>
+            <p style={{ color: 'rgba(255,255,255,0.9)', margin: 0 }}>
+              Personaliza tus comidas y porciones
+            </p>
           </div>
 
-          <div className="setup-section">
-            <h3>Porciones por Comida</h3>
-            <div className="portion-table">
-              <div className="table-header" style={{ gridTemplateColumns: `1fr repeat(${mealCount}, 60px)` }}>
-                <div>Grupo</div>
-                {mealNames.map((m, i) => (<div key={i}>{m.length > 6 ? m.slice(0, 6) + '¡K' : m}</div>))}
+          <div style={{ padding: '24px' }}>
+            {/* Seccion de comidas */}
+            <div style={{ marginBottom: '32px' }}>
+              <div style={{ 
+                display: 'flex', 
+                justifyContent: 'space-between', 
+                alignItems: 'center', 
+                marginBottom: '16px' 
+              }}>
+                <h3 style={{ fontSize: '18px', fontWeight: '600', color: '#1f2937', margin: 0 }}>
+                  Tus Comidas
+                </h3>
+                <button 
+                  onClick={addMeal}
+                  style={{
+                    background: '#2563eb',
+                    color: 'white',
+                    border: 'none',
+                    padding: '8px 16px',
+                    borderRadius: '6px',
+                    cursor: 'pointer',
+                    fontSize: '14px',
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '4px'
+                  }}
+                >
+                  <Plus size={16} />
+                  Anadir
+                </button>
               </div>
-              {Object.keys(foodGroups).map((g) => (
-                <div key={g} className="table-row" style={{ gridTemplateColumns: `1fr repeat(${mealCount}, 60px)` }}>
-                  <div className="group-cell"><span className="group-icon">{foodGroups[g].icon}</span><span className="group-name">{foodGroups[g].name}</span></div>
-                  {Array.from({ length: mealCount }, (_, i) => (
-                    <input key={i} type="number" min={0} value={portionDistribution[g]?.[i] ?? 0} onChange={(e) => updatePortionDistribution(g, i, e.target.value)} className="portion-input" />
-                  ))}
+              
+              {mealNames.map((meal, index) => (
+                <div key={index} style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '12px',
+                  padding: '12px',
+                  background: '#f8fafc',
+                  border: '1px solid #e2e8f0',
+                  borderRadius: '8px',
+                  marginBottom: '8px'
+                }}>
+                  {isEditingMeal === index ? (
+                    <>
+                      <input
+                        value={tempMealName}
+                        onChange={(e) => setTempMealName(e.target.value)}
+                        style={{
+                          flex: 1,
+                          padding: '8px',
+                          border: '1px solid #d1d5db',
+                          borderRadius: '6px',
+                          fontSize: '14px'
+                        }}
+                        placeholder="Nombre de la comida"
+                      />
+                      <button 
+                        onClick={saveMealName}
+                        style={{
+                          background: '#059669',
+                          color: 'white',
+                          border: 'none',
+                          padding: '8px',
+                          borderRadius: '6px',
+                          cursor: 'pointer'
+                        }}
+                      >
+                        <Save size={16} />
+                      </button>
+                      <button 
+                        onClick={() => setIsEditingMeal(-1)}
+                        style={{
+                          background: '#6b7280',
+                          color: 'white',
+                          border: 'none',
+                          padding: '8px',
+                          borderRadius: '6px',
+                          cursor: 'pointer'
+                        }}
+                      >
+                        <X size={16} />
+                      </button>
+                    </>
+                  ) : (
+                    <>
+                      <span style={{ flex: 1, fontSize: '16px', fontWeight: '500', color: '#1f2937' }}>
+                        {meal}
+                      </span>
+                      <button 
+                        onClick={() => startEditingMeal(index)}
+                        style={{
+                          background: 'none',
+                          border: 'none',
+                          color: '#2563eb',
+                          cursor: 'pointer',
+                          padding: '4px'
+                        }}
+                      >
+                        <Edit3 size={16} />
+                      </button>
+                      {mealCount > 1 && (
+                        <button 
+                          onClick={() => removeMeal(index)}
+                          style={{
+                            background: 'none',
+                            border: 'none',
+                            color: '#ef4444',
+                            cursor: 'pointer',
+                            padding: '4px'
+                          }}
+                        >
+                          <X size={16} />
+                        </button>
+                      )}
+                    </>
+                  )}
                 </div>
               ))}
             </div>
-          </div>
 
-          <div className="setup-section">
-            <div className="section-header">
-              <h3>Datos</h3>
-              <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
-                <button onClick={exportData} className="btn-success"><Download size={16} /> Exportar</button>
-                <button onClick={() => importInputRefSetup.current?.click()} className="btn-primary"><Upload size={16} /> Importar</button>
-                <input ref={importInputRefSetup} type="file" accept=".json" onChange={(e) => e.target.files?.[0] && importData(e.target.files[0])} style={{ display: 'none' }} />
-                <button onClick={resetTodayData} className="btn-danger">Reiniciar Hoy</button>
+            {/* Tabla de porciones */}
+            <div style={{ marginBottom: '32px' }}>
+              <h3 style={{ fontSize: '18px', fontWeight: '600', color: '#1f2937', marginBottom: '16px' }}>
+                Porciones por Comida
+              </h3>
+              <div style={{ overflowX: 'auto' }}>
+                <table style={{ width: '100%', borderCollapse: 'collapse' }}>
+                  <thead>
+                    <tr style={{ background: '#f8fafc' }}>
+                      <th style={{ 
+                        padding: '12px', 
+                        textAlign: 'left', 
+                        fontWeight: '600', 
+                        color: '#374151',
+                        border: '1px solid #e5e7eb'
+                      }}>
+                        Grupo
+                      </th>
+                      {mealNames.map((meal, index) => (
+                        <th key={index} style={{ 
+                          padding: '12px', 
+                          textAlign: 'center', 
+                          fontWeight: '600', 
+                          color: '#374151',
+                          border: '1px solid #e5e7eb',
+                          fontSize: '12px'
+                        }}>
+                          {meal.length > 8 ? meal.substring(0, 8) + '...' : meal}
+                        </th>
+                      ))}
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {Object.keys(foodGroups).map(group => (
+                      <tr key={group}>
+                        <td style={{ 
+                          padding: '12px', 
+                          border: '1px solid #e5e7eb',
+                          display: 'flex',
+                          alignItems: 'center',
+                          gap: '8px'
+                        }}>
+                          <span style={{
+                            display: 'inline-flex',
+                            alignItems: 'center',
+                            justifyContent: 'center',
+                            width: '24px',
+                            height: '24px',
+                            borderRadius: '50%',
+                            background: '#e5e7eb',
+                            fontSize: '12px',
+                            fontWeight: 'bold',
+                            color: '#374151'
+                          }}>
+                            {foodGroups[group].icon}
+                          </span>
+                          <span style={{ fontSize: '14px', fontWeight: '500', color: '#1f2937' }}>
+                            {foodGroups[group].name}
+                          </span>
+                        </td>
+                        {Array.from({ length: mealCount }, (_, index) => (
+                          <td key={index} style={{ 
+                            padding: '12px', 
+                            border: '1px solid #e5e7eb',
+                            textAlign: 'center'
+                          }}>
+                            <input
+                              type="number"
+                              min="0"
+                              value={portionDistribution[group]?.[index] || 0}
+                              onChange={(e) => updatePortionDistribution(group, index, e.target.value)}
+                              style={{
+                                width: '60px',
+                                padding: '6px',
+                                border: '1px solid #d1d5db',
+                                borderRadius: '4px',
+                                textAlign: 'center',
+                                fontSize: '14px'
+                              }}
+                            />
+                          </td>
+                        ))}
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
               </div>
             </div>
-          </div>
 
-          <button onClick={() => { initializeConsumedFoods(mealCount); setShowSetup(false); }} className="start-tracking-btn">Comenzar Seguimiento</button>
+            <button
+              onClick={() => {
+                initializeConsumedFoods();
+                setShowSetup(false);
+              }}
+              style={{
+                width: '100%',
+                background: '#059669',
+                color: 'white',
+                border: 'none',
+                padding: '16px',
+                borderRadius: '8px',
+                fontSize: '16px',
+                fontWeight: '600',
+                cursor: 'pointer'
+              }}
+            >
+              Comenzar Seguimiento
+            </button>
+          </div>
         </div>
       </div>
     );
   }
 
-  // -------------------- UI principal --------------------
-  const connectionBadge = backendStatus === 'connected'
-    ? { text: 'Sincronizado', color: '#22c55e' }
-    : backendStatus === 'offline'
-    ? { text: 'Sin conexion', color: '#f59e0b' }
-    : { text: 'Conectando¡K', color: '#6b7280' };
-
   return (
-    <div className="app">
+    <div style={{
+      minHeight: '100vh',
+      background: '#f8fafc',
+      fontFamily: 'system-ui, -apple-system, sans-serif'
+    }}>
       {/* Modales */}
       {showEditConsumption && editingConsumption && (
-        <div className="modal-overlay">
-          <div className="modal">
-            <h3>Editar cantidad consumida</h3>
-            <p className="muted" style={{ marginBottom: 12 }}><strong>{editingConsumption.food.name}</strong></p>
-            <label>Gramos consumidos</label>
-            <input type="number" value={newConsumedGrams} onChange={(e) => setNewConsumedGrams(Math.max(1, parseInt(e.target.value) || 1))} min={1} />
-            <div className="modal-actions">
-              <button onClick={saveEditedConsumption} className="btn-primary">Guardar</button>
-              <button onClick={() => setShowEditConsumption(false)} className="cancel-btn-modal">Cancelar</button>
+        <div style={{
+          position: 'fixed',
+          top: 0,
+          left: 0,
+          right: 0,
+          bottom: 0,
+          background: 'rgba(0, 0, 0, 0.5)',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          zIndex: 1000,
+          padding: '20px'
+        }}>
+          <div style={{
+            background: 'white',
+            padding: '24px',
+            borderRadius: '12px',
+            width: '100%',
+            maxWidth: '400px',
+            boxShadow: '0 10px 25px rgba(0,0,0,0.1)'
+          }}>
+            <h3 style={{ fontSize: '18px', fontWeight: '600', marginBottom: '16px', color: '#1f2937' }}>
+              Editar Cantidad Consumida
+            </h3>
+            <p style={{ fontSize: '14px', marginBottom: '16px', color: '#6b7280' }}>
+              <strong>{editingConsumption.food.name}</strong>
+            </p>
+            
+            <div style={{ marginBottom: '16px' }}>
+              <label style={{ display: 'block', marginBottom: '8px', fontSize: '14px', fontWeight: '500', color: '#374151' }}>
+                Gramos consumidos:
+              </label>
+              <input
+                type="number"
+                value={newConsumedGrams}
+                onChange={(e) => setNewConsumedGrams(Math.max(1, parseInt(e.target.value) || 1))}
+                style={{ 
+                  width: '100%', 
+                  padding: '12px', 
+                  border: '1px solid #d1d5db', 
+                  borderRadius: '8px',
+                  fontSize: '14px',
+                  boxSizing: 'border-box'
+                }}
+                min="1"
+              />
+              <p style={{ fontSize: '12px', color: '#2563eb', marginTop: '8px' }}>
+                Calorias: {Math.round(editingConsumption.food.calories * newConsumedGrams / 100)} kcal
+              </p>
+            </div>
+            
+            <div style={{ display: 'flex', gap: '12px' }}>
+              <button 
+                onClick={saveEditedConsumption}
+                style={{ 
+                  flex: 1, 
+                  background: '#2563eb', 
+                  color: 'white', 
+                  border: 'none', 
+                  padding: '12px', 
+                  borderRadius: '8px',
+                  fontSize: '14px',
+                  fontWeight: '600',
+                  cursor: 'pointer'
+                }}
+              >
+                Guardar
+              </button>
+              <button 
+                onClick={() => setShowEditConsumption(false)}
+                style={{ 
+                  flex: 1, 
+                  background: '#6b7280', 
+                  color: 'white', 
+                  border: 'none', 
+                  padding: '12px', 
+                  borderRadius: '8px',
+                  fontSize: '14px',
+                  fontWeight: '600',
+                  cursor: 'pointer'
+                }}
+              >
+                Cancelar
+              </button>
             </div>
           </div>
         </div>
       )}
 
+      {/* Modal de categorizacion */}
       {showCategoryModal && selectedFood && (
-        <div className="modal-overlay">
-          <div className="modal">
-            <h3>Categorizar alimento</h3>
-            <p className="muted" style={{ marginBottom: 12 }}><strong>{selectedFood.name}</strong> {selectedFood.brand && <span>¡P {selectedFood.brand}</span>}</p>
-            <label><Scale size={16} style={{ marginRight: 6 }} />Gramos por porcion</label>
-            <input type="number" value={portionGrams} onChange={(e) => setPortionGrams(Math.max(1, parseInt(e.target.value) || 1))} min={1} step={5} />
-            <div className="categories">
-              {Object.keys(foodGroups).map((g) => (
-                <button key={g} onClick={() => assignFoodCategory(g)} className="category-btn">
-                  <span className="category-icon">{foodGroups[g].icon}</span>{foodGroups[g].name}
+        <div style={{
+          position: 'fixed',
+          top: 0,
+          left: 0,
+          right: 0,
+          bottom: 0,
+          background: 'rgba(0, 0, 0, 0.5)',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          zIndex: 1000,
+          padding: '20px'
+        }}>
+          <div style={{
+            background: 'white',
+            padding: '24px',
+            borderRadius: '12px',
+            width: '100%',
+            maxWidth: '500px',
+            boxShadow: '0 10px 25px rgba(0,0,0,0.1)',
+            maxHeight: '90vh',
+            overflowY: 'auto'
+          }}>
+            <h3 style={{ fontSize: '18px', fontWeight: '600', marginBottom: '16px', color: '#1f2937' }}>
+              Categorizar Alimento
+            </h3>
+            <p style={{ fontSize: '14px', color: '#6b7280', marginBottom: '16px' }}>
+              <strong>{selectedFood.name}</strong>
+              {selectedFood.brand && <span> - {selectedFood.brand}</span>}
+              {selectedFood.isFromAPI && <span style={{ color: '#22c55e', fontSize: '12px' }}> (FatSecret)</span>}
+            </p>
+            
+            {/* Info nutricional */}
+            {(selectedFood.calories || selectedFood.protein || selectedFood.carbs || selectedFood.fat) && (
+              <div style={{ 
+                marginBottom: '16px', 
+                padding: '12px', 
+                background: '#eff6ff', 
+                borderRadius: '8px', 
+                border: '1px solid #bfdbfe' 
+              }}>
+                <div style={{ fontSize: '12px', fontWeight: '600', color: '#1e40af', marginBottom: '8px' }}>
+                  Informacion Nutricional (por 100g)
+                </div>
+                <div style={{ fontSize: '12px', color: '#1e40af' }}>
+                  {selectedFood.calories && <div>Calorias: {selectedFood.calories} kcal</div>}
+                  {selectedFood.protein && <div>Proteina: {selectedFood.protein}g</div>}
+                  {selectedFood.carbs && <div>Carbohidratos: {selectedFood.carbs}g</div>}
+                  {selectedFood.fat && <div>Grasas: {selectedFood.fat}g</div>}
+                </div>
+              </div>
+            )}
+            
+            <div style={{ marginBottom: '16px' }}>
+              <label style={{ 
+                display: 'block', 
+                color: '#374151', 
+                fontSize: '14px', 
+                fontWeight: '500', 
+                marginBottom: '8px' 
+              }}>
+                <Scale size={16} style={{ display: 'inline', marginRight: '4px' }} />
+                Gramos por porcion:
+              </label>
+              <input
+                type="number"
+                value={portionGrams}
+                onChange={(e) => setPortionGrams(Math.max(1, parseInt(e.target.value) || 1))}
+                style={{ 
+                  width: '100%', 
+                  padding: '12px', 
+                  border: '1px solid #d1d5db', 
+                  borderRadius: '8px', 
+                  fontSize: '14px',
+                  boxSizing: 'border-box'
+                }}
+                min="1"
+                step="5"
+              />
+              {selectedFood.calories && (
+                <p style={{ fontSize: '12px', color: '#2563eb', marginTop: '8px' }}>
+                  Equivale a {Math.round(selectedFood.calories * portionGrams / 100)} kcal
+                </p>
+              )}
+            </div>
+            
+            <div style={{ marginBottom: '16px' }}>
+              <div style={{ fontSize: '14px', fontWeight: '500', marginBottom: '12px', color: '#374151' }}>
+                Selecciona la categoria:
+              </div>
+              {Object.keys(foodGroups).map(group => (
+                <button
+                  key={group}
+                  onClick={() => assignFoodCategory(group)}
+                  style={{
+                    width: '100%',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'space-between',
+                    padding: '12px',
+                    marginBottom: '8px',
+                    background: '#f8fafc',
+                    border: '1px solid #e2e8f0',
+                    borderRadius: '8px',
+                    cursor: 'pointer',
+                    fontSize: '14px',
+                    transition: 'all 0.2s'
+                  }}
+                >
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                    <span style={{
+                      display: 'inline-flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      width: '24px',
+                      height: '24px',
+                      borderRadius: '50%',
+                      background: '#e5e7eb',
+                      fontSize: '12px',
+                      fontWeight: 'bold',
+                      color: '#374151'
+                    }}>
+                      {foodGroups[group].icon}
+                    </span>
+                    <span style={{ fontWeight: '500', color: '#1f2937' }}>
+                      {foodGroups[group].name}
+                    </span>
+                  </div>
+                  <span style={{ fontSize: '12px', color: '#6b7280' }}>
+                    ({foodGroups[group].defaultGrams}g tipico)
+                  </span>
                 </button>
               ))}
             </div>
-            <button onClick={() => { setShowCategoryModal(false); setSelectedFood(null); }} className="cancel-btn-modal">Cerrar</button>
+            
+            <button
+              onClick={() => {
+                setShowCategoryModal(false);
+                setSelectedFood(null);
+              }}
+              style={{
+                width: '100%',
+                background: '#6b7280',
+                color: 'white',
+                border: 'none',
+                padding: '12px',
+                borderRadius: '8px',
+                fontSize: '14px',
+                fontWeight: '600',
+                cursor: 'pointer'
+              }}
+            >
+              Cancelar
+            </button>
           </div>
         </div>
       )}
 
-      {/* Header completo */}
-      <div className="header">
-        <div className="header-top">
-          <div className="brand">
-            <h1>Control de Porciones</h1>
-            <div className="muted small">{new Date().toLocaleDateString(undefined, { weekday: 'long', year: 'numeric', month: 'short', day: 'numeric' })}</div>
-          </div>
-          <div className="header-actions">
-            <span className="pill"><span className="dot" style={{ backgroundColor: connectionBadge.color }} />{connectionBadge.text}</span>
-            <span className="pill"><User size={14} style={{ marginRight: 6 }} />{user?.email}</span>
-            <span className="pill" title="Tiempo hasta el reseteo diario">? {midnightCountdown}</span>
-            <button onClick={() => setShowSetup(true)} className="header-btn" title="Configuracion"><Settings size={18} /></button>
-            <button onClick={exportData} className="header-btn" title="Exportar"><Download size={18} /></button>
-            <button onClick={() => importInputRefMain.current?.click()} className="header-btn" title="Importar"><Upload size={18} /></button>
-            <input ref={importInputRefMain} type="file" accept=".json" onChange={(e) => e.target.files?.[0] && importData(e.target.files[0])} style={{ display: 'none' }} />
-            <button onClick={handleLogout} className="header-btn" title="Salir"><LogOut size={18} /></button>
+      {/* Modal de estadisticas */}
+      {showStats && (
+        <div style={{
+          position: 'fixed',
+          top: 0,
+          left: 0,
+          right: 0,
+          bottom: 0,
+          background: 'rgba(0, 0, 0, 0.5)',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          zIndex: 1000,
+          padding: '20px'
+        }}>
+          <div style={{
+            background: 'white',
+            padding: '24px',
+            borderRadius: '12px',
+            width: '100%',
+            maxWidth: '500px',
+            boxShadow: '0 10px 25px rgba(0,0,0,0.1)',
+            maxHeight: '90vh',
+            overflowY: 'auto'
+          }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '24px' }}>
+              <h3 style={{ fontSize: '18px', fontWeight: '600', color: '#1f2937', margin: 0 }}>
+                Estadisticas Diarias
+              </h3>
+              <button 
+                onClick={() => setShowStats(false)}
+                style={{
+                  background: 'none',
+                  border: 'none',
+                  color: '#6b7280',
+                  cursor: 'pointer',
+                  padding: '4px'
+                }}
+              >
+                <X size={20} />
+              </button>
+            </div>
+            
+            <div style={{ textAlign: 'center', marginBottom: '24px' }}>
+              <div style={{ fontSize: '36px', fontWeight: 'bold', color: '#1f2937' }}>
+                {getDailyCalories()}
+              </div>
+              <div style={{ fontSize: '14px', color: '#6b7280' }}>
+                Calorias Totales
+              </div>
+            </div>
+
+            <div style={{ marginBottom: '24px' }}>
+              <h4 style={{ fontSize: '16px', fontWeight: '600', marginBottom: '12px', color: '#1f2937' }}>
+                Calorias por Comida
+              </h4>
+              {mealNames.map((meal, index) => (
+                <div key={index} style={{
+                  display: 'flex',
+                  justifyContent: 'space-between',
+                  alignItems: 'center',
+                  padding: '8px 0',
+                  borderBottom: '1px solid #e5e7eb'
+                }}>
+                  <span style={{ color: '#374151' }}>{meal}</span>
+                  <span style={{ fontWeight: '600', color: '#1f2937' }}>
+                    {getMealCalories(index)} kcal
+                  </span>
+                </div>
+              ))}
+            </div>
           </div>
         </div>
-        <div className="header-stats">
-          <div className="stat"><Activity size={14} style={{ marginRight: 6 }} />Hoy: {getDailyCalories()} kcal</div>
-          <div className="stat">{mealNames[currentMeal]}: {getMealCalories(currentMeal)} kcal</div>
+      )}
+
+      {/* Header */}
+      <div style={{
+        background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
+        color: 'white',
+        padding: '16px 20px',
+        boxShadow: '0 2px 4px rgba(0,0,0,0.1)'
+      }}>
+        <div style={{ maxWidth: '1200px', margin: '0 auto' }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '12px' }}>
+            <h1 style={{ fontSize: '24px', fontWeight: 'bold', margin: 0 }}>
+              Control de Porciones
+            </h1>
+            <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
+              <div style={{ display: 'flex', alignItems: 'center', fontSize: '14px' }}>
+                <User size={16} style={{ marginRight: '4px' }} />
+                {user?.email}
+              </div>
+              <button 
+                onClick={() => setShowStats(true)}
+                style={{
+                  background: 'rgba(255,255,255,0.2)',
+                  border: 'none',
+                  color: 'white',
+                  padding: '8px',
+                  borderRadius: '6px',
+                  cursor: 'pointer'
+                }}
+                title="Estadisticas"
+              >
+                <BarChart3 size={18} />
+              </button>
+              <button 
+                onClick={() => setShowSetup(true)}
+                style={{
+                  background: 'rgba(255,255,255,0.2)',
+                  border: 'none',
+                  color: 'white',
+                  padding: '8px',
+                  borderRadius: '6px',
+                  cursor: 'pointer'
+                }}
+                title="Configuracion"
+              >
+                <Settings size={18} />
+              </button>
+              <button
+                onClick={handleLogout}
+                style={{
+                  background: 'rgba(255,255,255,0.2)',
+                  border: 'none',
+                  color: 'white',
+                  padding: '8px',
+                  borderRadius: '6px',
+                  cursor: 'pointer'
+                }}
+                title="Cerrar Sesion"
+              >
+                <LogOut size={18} />
+              </button>
+            </div>
+          </div>
+          
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
+              <div style={{ display: 'flex', alignItems: 'center' }}>
+                <Activity size={16} style={{ marginRight: '4px' }} />
+                <span style={{ fontSize: '14px' }}>Hoy: {getDailyCalories()} kcal</span>
+              </div>
+              <div style={{ fontSize: '14px' }}>
+                {mealNames[currentMeal]}: {getMealCalories(currentMeal)} kcal
+              </div>
+            </div>
+            <div style={{ fontSize: '12px', color: 'rgba(255,255,255,0.8)' }}>
+              {backendStatus === 'connected' ? 'Conectado a FatSecret' : 'Modo offline'}
+            </div>
+          </div>
+          
+          {/* Selector de comidas */}
+          <div style={{ display: 'flex', gap: '8px', overflowX: 'auto' }}>
+            {mealNames.map((meal, index) => (
+              <button
+                key={index}
+                onClick={() => setCurrentMeal(index)}
+                style={{
+                  background: currentMeal === index ? 'rgba(255,255,255,0.3)' : 'rgba(255,255,255,0.1)',
+                  border: '1px solid rgba(255,255,255,0.3)',
+                  color: 'white',
+                  padding: '8px 16px',
+                  borderRadius: '6px',
+                  cursor: 'pointer',
+                  fontSize: '14px',
+                  fontWeight: currentMeal === index ? '600' : '500',
+                  whiteSpace: 'nowrap',
+                  minWidth: 'fit-content'
+                }}
+              >
+                {meal}
+              </button>
+            ))}
+          </div>
         </div>
-        <div className="meal-tabs">
-          {mealNames.map((meal, i) => (
-            <button key={i} onClick={() => setCurrentMeal(i)} className={`meal-tab ${currentMeal === i ? 'active' : ''}`}>
-              {meal.length > 10 ? meal.slice(0, 10) + '¡K' : meal}
+      </div>
+
+      {/* Error Message */}
+      {error && (
+        <div style={{
+          background: '#fef2f2',
+          border: '1px solid #fecaca',
+          color: '#dc2626',
+          padding: '12px 20px',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'space-between'
+        }}>
+          <div style={{ display: 'flex', alignItems: 'center' }}>
+            <AlertCircle size={16} style={{ marginRight: '8px' }} />
+            {error}
+          </div>
+          {backendStatus === 'offline' && (
+            <button 
+              onClick={checkBackendHealth}
+              style={{ 
+                padding: '4px 12px', 
+                fontSize: '12px', 
+                background: '#2563eb', 
+                color: 'white', 
+                border: 'none', 
+                borderRadius: '4px', 
+                cursor: 'pointer' 
+              }}
+            >
+              Reconectar
             </button>
-          ))}
+          )}
         </div>
-        {error && <div className="error-message"><AlertCircle size={16} style={{ marginRight: 6 }} />{error}{backendStatus === 'offline' && (<button onClick={checkBackendHealth} className="btn-primary" style={{ marginLeft: 8, padding: '2px 8px', fontSize: 12 }}>Reconectar</button>)}</div>}
-      </div>
+      )}
 
-      {/* Buscador + contenido */}
-      <div className="content">
-        <div className="search-bar">
-          <div className="search-input-wrap">
-            <Search size={16} className="search-icon" />
-            <input value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} placeholder="Buscar alimento¡K" className="search-input" />
-            {isSearching && <div className="search-loading">Buscando¡K</div>}
+      <div style={{ maxWidth: '1200px', margin: '0 auto', padding: '20px' }}>
+        {/* Resumen diario */}
+        <div style={{
+          background: 'white',
+          borderRadius: '12px',
+          padding: '20px',
+          marginBottom: '20px',
+          boxShadow: '0 1px 3px rgba(0,0,0,0.1)'
+        }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px' }}>
+            <h2 style={{ fontSize: '18px', fontWeight: '600', color: '#1f2937', margin: 0 }}>
+              Resumen Diario
+            </h2>
+            <button
+              onClick={() => setShowPersonalFoods(true)}
+              style={{
+                background: '#2563eb',
+                color: 'white',
+                border: 'none',
+                padding: '8px 12px',
+                borderRadius: '6px',
+                cursor: 'pointer',
+                fontSize: '12px',
+                display: 'flex',
+                alignItems: 'center',
+                gap: '4px'
+              }}
+            >
+              Mis Alimentos ({Object.keys(personalFoods).length})
+            </button>
           </div>
-          <button className="secondary-btn" onClick={() => setShowPersonalFoods(true)} title="Mis alimentos"><Utensils size={16} /></button>
-        </div>
-
-        {searchHistory.length > 0 && (
-          <div className="search-history">
-            <h4>Ultimas busquedas</h4>
-            <div className="chips">
-              {searchHistory.slice(0, 6).map((h, idx) => (<button key={idx} className="chip" onClick={() => setSearchTerm(h.term)}>{h.term} ({h.resultCount})</button>))}
-            </div>
-          </div>
-        )}
-
-        {searchResults.length > 0 && (
-          <div className="results">
-            {searchResults.map((f) => (
-              <div key={f.id} className="result-item" onClick={() => handleFoodSelect(f)}>
-                <div className="result-title"><strong>{f.name}</strong> {f.brand && <span className="muted">¡P {f.brand}</span>}</div>
-                <div className="result-macros muted">{[f.calories && `${f.calories} kcal`, f.protein && `${f.protein}P`, f.carbs && `${f.carbs}C`, f.fat && `${f.fat}G`].filter(Boolean).join(' ¡P ')}</div>
-              </div>
-            ))}
-          </div>
-        )}
-
-        {/* Panel de comida actual */}
-        <div className="meal-panel">
-          <div className="meal-panel-head">
-            <div className="meal-title">{mealNames[currentMeal]}</div>
-            <div className="muted">Calorias: {getMealCalories(currentMeal)} kcal</div>
-          </div>
-          <div className="meal-grid">
-            {Object.keys(foodGroups).map((g) => (
-              <div key={g} className="group-card">
-                <div className="group-card-head">
-                  <div className="group-head-left"><span className="group-chip">{foodGroups[g].icon}</span><strong>{foodGroups[g].name}</strong></div>
-                  <span className="muted">Quedan: {getRemainingPortions(currentMeal, g)} / {portionDistribution[g]?.[currentMeal] || 0}</span>
+          
+          <div style={{ 
+            display: 'grid', 
+            gridTemplateColumns: 'repeat(auto-fit, minmax(160px, 1fr))', 
+            gap: '12px' 
+          }}>
+            {Object.keys(foodGroups).map(group => {
+              const consumed = getTotalConsumedPortions(group);
+              const total = getTotalPlannedPortions(group);
+              const percentage = total > 0 ? (consumed / total) * 100 : 0;
+              
+              return (
+                <div
+                  key={group}
+                  style={{
+                    background: '#f8fafc',
+                    border: '1px solid #e2e8f0',
+                    borderRadius: '8px',
+                    padding: '12px',
+                    textAlign: 'center'
+                  }}
+                >
+                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', marginBottom: '8px' }}>
+                    <span style={{
+                      display: 'inline-flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      width: '20px',
+                      height: '20px',
+                      borderRadius: '50%',
+                      background: '#e5e7eb',
+                      fontSize: '10px',
+                      fontWeight: 'bold',
+                      color: '#374151',
+                      marginRight: '6px'
+                    }}>
+                      {foodGroups[group].icon}
+                    </span>
+                    <span style={{ fontSize: '12px', fontWeight: '500', color: '#374151' }}>
+                      {foodGroups[group].name}
+                    </span>
+                  </div>
+                  <div style={{ fontSize: '16px', fontWeight: '600', color: '#1f2937', marginBottom: '4px' }}>
+                    {consumed}/{total}
+                  </div>
+                  <div style={{
+                    width: '100%',
+                    height: '4px',
+                    background: '#e5e7eb',
+                    borderRadius: '2px',
+                    overflow: 'hidden'
+                  }}>
+                    <div 
+                      style={{
+                        width: `${Math.min(percentage, 100)}%`,
+                        height: '100%',
+                        background: percentage >= 100 ? '#059669' : '#2563eb',
+                        transition: 'width 0.3s ease'
+                      }}
+                    />
+                  </div>
                 </div>
-                <div>
-                  {(consumedFoods[currentMeal]?.[g] || []).map((item) => (
-                    <div key={item.id} className="food-row">
-                      <div>
-                        <div className="food-name">{item.name}</div>
-                        <div className="muted">{item.actualGrams ?? item.gramsPerPortion} g</div>
+              );
+            })}
+          </div>
+        </div>
+
+        {/* Seccion de comida actual */}
+        <div style={{
+          background: 'white',
+          borderRadius: '12px',
+          padding: '20px',
+          marginBottom: '20px',
+          boxShadow: '0 1px 3px rgba(0,0,0,0.1)'
+        }}>
+          <h2 style={{ 
+            display: 'flex', 
+            alignItems: 'center', 
+            gap: '8px', 
+            color: '#1f2937', 
+            fontSize: '18px', 
+            marginBottom: '16px',
+            fontWeight: '600'
+          }}>
+            <Target size={20} />
+            {mealNames[currentMeal]} - Porciones Restantes
+          </h2>
+          
+          <div style={{ 
+            display: 'grid', 
+            gridTemplateColumns: 'repeat(auto-fit, minmax(120px, 1fr))', 
+            gap: '12px',
+            marginBottom: '20px'
+          }}>
+            {Object.keys(foodGroups).map(group => {
+              const remaining = getRemainingPortions(currentMeal, group);
+              const planned = portionDistribution[group]?.[currentMeal] || 0;
+              return (
+                <div
+                  key={group}
+                  style={{
+                    background: '#f8fafc',
+                    border: '1px solid #e2e8f0',
+                    borderRadius: '8px',
+                    padding: '12px',
+                    textAlign: 'center'
+                  }}
+                >
+                  <div style={{ marginBottom: '8px' }}>
+                    <span style={{ marginRight: '4px', fontSize: '12px' }}>{foodGroups[group].icon}</span>
+                    <span style={{ fontSize: '11px', fontWeight: '500' }}>{foodGroups[group].name}</span>
+                  </div>
+                  <div style={{ fontSize: '16px', fontWeight: '600', color: '#1f2937' }}>
+                    {remaining > 0 ? `${remaining}/${planned}` : '?'}
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+
+          {/* Busqueda de alimentos */}
+          <div style={{ position: 'relative', marginBottom: '16px' }}>
+            <Search style={{ 
+              position: 'absolute', 
+              left: '12px', 
+              top: '50%', 
+              transform: 'translateY(-50%)', 
+              color: '#6b7280' 
+            }} size={16} />
+            <input
+              type="text"
+              placeholder={backendStatus === 'connected' ? 
+                "Buscar en FatSecret... (ej: chicken breast, apple)" : 
+                "Buscar alimentos... (ej: pollo, manzana, arroz)"
+              }
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+              style={{
+                width: '100%',
+                padding: '12px 12px 12px 40px',
+                border: '1px solid #d1d5db',
+                borderRadius: '8px',
+                fontSize: '14px',
+                outline: 'none',
+                boxSizing: 'border-box'
+              }}
+            />
+          </div>
+
+          {isSearching && (
+            <div style={{ 
+              textAlign: 'center', 
+              padding: '20px', 
+              color: '#6b7280' 
+            }}>
+              <div style={{
+                width: '20px',
+                height: '20px',
+                border: '2px solid #e5e7eb',
+                borderTop: '2px solid #2563eb',
+                borderRadius: '50%',
+                animation: 'spin 1s linear infinite',
+                margin: '0 auto 8px'
+              }} />
+              {backendStatus === 'connected' ? 'Buscando en FatSecret...' : 'Buscando alimentos...'}
+            </div>
+          )}
+
+          {searchResults.length > 0 && (
+            <div style={{ marginBottom: '20px' }}>
+              {searchResults.map((food) => {
+                const isPersonalFood = personalFoods[food.id];
+                return (
+                  <div 
+                    key={food.id}
+                    onClick={() => handleFoodSelect(food)}
+                    style={{
+                      display: 'flex',
+                      justifyContent: 'space-between',
+                      alignItems: 'center',
+                      padding: '12px',
+                      marginBottom: '8px',
+                      background: '#f8fafc',
+                      border: '1px solid #e2e8f0',
+                      borderRadius: '8px',
+                      cursor: 'pointer',
+                      transition: 'all 0.2s'
+                    }}
+                    onMouseEnter={(e) => {
+                      e.currentTarget.style.background = '#e2e8f0';
+                      e.currentTarget.style.borderColor = '#9ca3af';
+                    }}
+                    onMouseLeave={(e) => {
+                      e.currentTarget.style.background = '#f8fafc';
+                      e.currentTarget.style.borderColor = '#e2e8f0';
+                    }}
+                  >
+                    <div style={{ flex: 1 }}>
+                      <div style={{ fontSize: '14px', fontWeight: '500', color: '#1f2937', marginBottom: '4px' }}>
+                        {food.name}
                       </div>
-                      <div className="row-actions">
-                        <button onClick={() => startEditingConsumption(item, currentMeal, g)} className="icon-btn" title="Editar gramos"><Edit3 size={14} /></button>
-                        <button onClick={() => removeFood(currentMeal, g, item.id)} className="icon-btn danger" title="Eliminar"><Trash2 size={14} /></button>
+                      <div style={{ fontSize: '12px', color: '#6b7280' }}>
+                        {food.brand && <span>{food.brand} !E </span>}
+                        {food.isFromAPI ? (
+                          <span style={{ color: '#22c55e' }}>FatSecret !E </span>
+                        ) : (
+                          <span>Datos locales !E </span>
+                        )}
+                        {food.calories ? `${food.calories} kcal/100g` : 'Tap para info nutricional'}
+                        {food.protein && <span> !E {food.protein}g prot</span>}
+                      </div>
+                      {isPersonalFood && (
+                        <div style={{ fontSize: '11px', color: '#059669', marginTop: '2px' }}>
+                          ? Guardado como {foodGroups[isPersonalFood.group].icon} ({isPersonalFood.gramsPerPortion}g)
+                        </div>
+                      )}
+                    </div>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                      <span style={{
+                        padding: '4px 8px',
+                        background: isPersonalFood ? '#d1fae5' : '#dbeafe',
+                        color: isPersonalFood ? '#059669' : '#2563eb',
+                        borderRadius: '4px',
+                        fontSize: '11px',
+                        fontWeight: '500'
+                      }}>
+                        {isPersonalFood ? 'Anadir' : 'Categorizar'}
+                      </span>
+                      <Plus size={16} style={{ color: '#6b7280' }} />
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          )}
+
+          {searchTerm.length >= 2 && !isSearching && searchResults.length === 0 && (
+            <div style={{ textAlign: 'center', padding: '20px', color: '#6b7280' }}>
+              <div style={{ fontSize: '14px' }}>No se encontraron alimentos para "{searchTerm}"</div>
+              <div style={{ fontSize: '12px', marginTop: '4px', color: '#2563eb' }}>
+                {backendStatus === 'connected' ? 
+                  'Intenta con terminos en ingles o mas especificos' :
+                  'Intenta con terminos mas simples'
+                }
+              </div>
+            </div>
+          )}
+        </div>
+
+        {/* Alimentos consumidos */}
+        <div style={{
+          background: 'white',
+          borderRadius: '12px',
+          padding: '20px',
+          boxShadow: '0 1px 3px rgba(0,0,0,0.1)'
+        }}>
+          <h3 style={{ 
+            display: 'flex', 
+            alignItems: 'center', 
+            gap: '8px', 
+            color: '#1f2937', 
+            fontSize: '18px', 
+            marginBottom: '16px',
+            fontWeight: '600'
+          }}>
+            <Utensils size={18} />
+            Consumido en {mealNames[currentMeal]}
+          </h3>
+
+          {Object.keys(foodGroups).map(group => {
+            const foods = consumedFoods[currentMeal]?.[group] || [];
+            if (foods.length === 0) return null;
+
+            return (
+              <div key={group} style={{ marginBottom: '16px' }}>
+                {foods.map((food) => (
+                  <div key={food.id} style={{
+                    display: 'flex',
+                    justifyContent: 'space-between',
+                    alignItems: 'center',
+                    padding: '12px',
+                    marginBottom: '8px',
+                    background: '#f8fafc',
+                    border: '1px solid #e2e8f0',
+                    borderRadius: '8px'
+                  }}>
+                    <div style={{ flex: 1 }}>
+                      <div style={{ fontSize: '14px', fontWeight: '500', color: '#1f2937', marginBottom: '2px' }}>
+                        {food.name}
+                        {food.isFromAPI && <span style={{ color: '#22c55e', fontSize: '12px', marginLeft: '4px' }}>??</span>}
+                      </div>
+                      <div style={{ fontSize: '12px', color: '#6b7280' }}>
+                        {food.actualGrams || food.gramsPerPortion}g 
+                        ({Math.round((food.actualGrams || food.gramsPerPortion) / (food.standardPortionGrams || food.gramsPerPortion) * 10) / 10} porciones) 
+                        !E {Math.round(food.calories * (food.actualGrams || food.gramsPerPortion) / 100)} kcal
+                        {food.protein && <span> !E {Math.round(food.protein * (food.actualGrams || food.gramsPerPortion) / 100 * 10) / 10}g prot</span>}
+                        <span style={{ color: '#9ca3af' }}> !E {food.timestamp}</span>
                       </div>
                     </div>
-                  ))}
-                </div>
-              </div>
-            ))}
-          </div>
-        </div>
-
-        {/* Resumen */}
-        <div className="summary-grid">
-          {Object.keys(foodGroups).map((g) => (
-            <div key={g} className="summary-card">
-              <div className="summary-title">{foodGroups[g].name}</div>
-              <div className="muted">Plan: {getTotalPlannedPortions(g)} ¡P Consumido: {getTotalConsumedPortions(g)}</div>
-            </div>
-          ))}
-          <div className="summary-card">
-            <div className="summary-title">Calorias diarias</div>
-            <div>{getDailyCalories()} kcal</div>
-          </div>
-        </div>
-
-        <div className="info">
-          <div className="muted">
-            ¡E <strong>Busca alimentos</strong> y <strong>categorizalos</strong> la primera vez (define gramos por porcion).<br />
-            ¡E El <strong>plan</strong> (comidas y porciones a ingerir) se guarda en tu cuenta y es editable.<br />
-            ¡E Las <strong>porciones consumidas</strong> se guardan por fecha y <strong>se reinician cada dia a las 00:00</strong>.
-          </div>
-        </div>
-      </div>
-
-      {/* Biblioteca de alimentos */}
-      {showPersonalFoods && (
-        <div className="modal-overlay">
-          <div className="modal" style={{ maxWidth: 640 }}>
-            <h3>Mis Alimentos</h3>
-            {Object.keys(personalFoods).length === 0 ? (
-              <div className="empty-personal-foods">
-                <p>No tienes alimentos guardados.</p>
-                <p>Busca y categoriza para crear tu biblioteca.</p>
-              </div>
-            ) : (
-              <div className="personal-foods-list">
-                {Object.values(personalFoods).map((pf) => (
-                  <div key={pf.id} className="pf-row">
-                    <div>
-                      <div className="food-name">{pf.name}</div>
-                      <div className="muted">{pf.group} ¡P {pf.standardPortionGrams || pf.gramsPerPortion} g</div>
-                    </div>
-                    <div className="row-actions">
-                      <button className="icon-btn" onClick={() => { addFoodToCurrent(pf); setShowPersonalFoods(false); }}>Anadir</button>
-                      <button className="icon-btn danger" onClick={() => { const copy = { ...personalFoods }; delete copy[pf.id]; setPersonalFoods(copy); }}>Eliminar</button>
+                    <div style={{ display: 'flex', gap: '4px' }}>
+                      <button
+                        onClick={() => startEditingConsumption(food, currentMeal, group)}
+                        style={{ 
+                          background: 'none', 
+                          border: 'none', 
+                          color: '#2563eb', 
+                          cursor: 'pointer', 
+                          padding: '4px' 
+                        }}
+                      >
+                        <Edit3 size={14} />
+                      </button>
+                      <button
+                        onClick={() => removeFood(currentMeal, group, food.id)}
+                        style={{ 
+                          background: 'none', 
+                          border: 'none', 
+                          color: '#ef4444', 
+                          cursor: 'pointer', 
+                          padding: '4px' 
+                        }}
+                      >
+                        <Trash2 size={14} />
+                      </button>
                     </div>
                   </div>
                 ))}
               </div>
-            )}
-            <button className="cancel-btn-modal" onClick={() => setShowPersonalFoods(false)}>Cerrar</button>
+            );
+          })}
+
+          {Object.values(consumedFoods[currentMeal] || {}).every(foods => foods.length === 0) && (
+            <div style={{ textAlign: 'center', padding: '40px', color: '#6b7280' }}>
+              <Utensils size={32} style={{ margin: '0 auto 12px', display: 'block' }} />
+              <p style={{ fontSize: '16px', marginBottom: '8px' }}>
+                No has anadido alimentos a {mealNames[currentMeal].toLowerCase()}
+              </p>
+              <p style={{ fontSize: '14px' }}>
+                {backendStatus === 'connected' ? 
+                  'Busca en FatSecret arriba o usa tus alimentos guardados' :
+                  'Busca arriba o usa tus alimentos guardados'
+                }
+              </p>
+            </div>
+          )}
+        </div>
+
+        {/* Modal de alimentos personales */}
+        {showPersonalFoods && (
+          <div style={{
+            position: 'fixed',
+            top: 0,
+            left: 0,
+            right: 0,
+            bottom: 0,
+            background: 'rgba(0, 0, 0, 0.5)',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            zIndex: 1000,
+            padding: '20px'
+          }}>
+            <div style={{
+              background: 'white',
+              padding: '24px',
+              borderRadius: '12px',
+              width: '100%',
+              maxWidth: '600px',
+              boxShadow: '0 10px 25px rgba(0,0,0,0.1)',
+              maxHeight: '90vh',
+              overflowY: 'auto'
+            }}>
+              <h3 style={{ fontSize: '18px', fontWeight: '600', marginBottom: '16px', color: '#1f2937' }}>
+                Mis Alimentos
+              </h3>
+              
+              {Object.keys(personalFoods).length === 0 ? (
+                <div style={{ textAlign: 'center', padding: '40px', color: '#6b7280' }}>
+                  <p style={{ fontSize: '16px', marginBottom: '8px' }}>No tienes alimentos guardados.</p>
+                  <p style={{ fontSize: '14px' }}>Busca y categoriza para crear tu biblioteca.</p>
+                </div>
+              ) : (
+                <div style={{ marginBottom: '20px' }}>
+                  {Object.values(personalFoods).map(food => (
+                    <div 
+                      key={food.id}
+                      onClick={() => {
+                        addFood(food);
+                        setShowPersonalFoods(false);
+                      }}
+                      style={{
+                        display: 'flex',
+                        justifyContent: 'space-between',
+                        alignItems: 'center',
+                        padding: '12px',
+                        marginBottom: '8px',
+                        background: '#f8fafc',
+                        border: '1px solid #e2e8f0',
+                        borderRadius: '8px',
+                        cursor: 'pointer',
+                        transition: 'all 0.2s'
+                      }}
+                      onMouseEnter={(e) => {
+                        e.currentTarget.style.background = '#e2e8f0';
+                        e.currentTarget.style.borderColor = '#9ca3af';
+                      }}
+                      onMouseLeave={(e) => {
+                        e.currentTarget.style.background = '#f8fafc';
+                        e.currentTarget.style.borderColor = '#e2e8f0';
+                      }}
+                    >
+                      <div style={{ flex: 1 }}>
+                        <div style={{ fontSize: '14px', fontWeight: '500', color: '#1f2937', marginBottom: '2px' }}>
+                          {food.name}
+                        </div>
+                        <div style={{ fontSize: '12px', color: '#6b7280' }}>
+                          {foodGroups[food.group].icon} {food.standardPortionGrams}g = 1 porcion
+                          {food.isFromAPI && <span style={{ color: '#22c55e', marginLeft: '8px' }}>FatSecret</span>}
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+              
+              <button
+                onClick={() => setShowPersonalFoods(false)}
+                style={{
+                  width: '100%',
+                  background: '#6b7280',
+                  color: 'white',
+                  border: 'none',
+                  padding: '12px',
+                  borderRadius: '8px',
+                  fontSize: '14px',
+                  fontWeight: '600',
+                  cursor: 'pointer'
+                }}
+              >
+                Cerrar
+              </button>
+            </div>
+          </div>
+        )}
+
+        {/* Informacion de uso */}
+        <div style={{
+          background: 'white',
+          borderRadius: '12px',
+          padding: '20px',
+          marginTop: '20px',
+          boxShadow: '0 1px 3px rgba(0,0,0,0.1)'
+        }}>
+          <h3 style={{ fontSize: '16px', fontWeight: '600', color: '#1f2937', marginBottom: '12px' }}>
+            Como usar:
+          </h3>
+          <div style={{ fontSize: '14px', color: '#6b7280', lineHeight: '1.5' }}>
+            <div style={{ marginBottom: '8px' }}>
+              ? <strong>Busca alimentos</strong> {backendStatus === 'connected' ? 'en la base de datos de FatSecret' : 'con datos nutricionales'}
+            </div>
+            <div style={{ marginBottom: '8px' }}>
+              ? <strong>Categoriza y define gramos</strong> por porcion la primera vez
+            </div>
+            <div style={{ marginBottom: '8px' }}>
+              ? <strong>Anade automaticamente</strong> en siguientes busquedas
+            </div>
+            <div style={{ marginBottom: '8px' }}>
+              ? <strong>Seguimiento completo</strong> de calorias y macros
+            </div>
+            <div>
+              ? <strong>Datos sincronizados</strong> - guardados en tu cuenta personal
+            </div>
+          </div>
+          
+          <div style={{ 
+            marginTop: '12px', 
+            fontSize: '12px', 
+            color: '#059669', 
+            background: '#d1fae5', 
+            padding: '8px', 
+            borderRadius: '6px' 
+          }}>
+            <strong>Cuenta Personal:</strong> Tus datos se guardan automaticamente en la nube. Los alimentos consumidos se reinician cada dia a las 00:00.
           </div>
         </div>
-      )}
+      </div>
+
+      <style>{`
+        @keyframes spin {
+          0% { transform: rotate(0deg); }
+          100% { transform: rotate(360deg); }
+        }
+      `}</style>
     </div>
   );
-}
+};
+
+export default PortionTracker;block', 
+                  
