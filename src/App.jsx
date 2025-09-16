@@ -44,8 +44,7 @@ const PortionTracker = () => {
   const [consumedFoods, setConsumedFoods] = useState({});
 
   // URL del backend
-	const API_BASE = process.env.NEXT_PUBLIC_API_URL || "https://portion-tracker-backend-production.up.railway.app/";
-
+const API_BASE = "https://portion-tracker-backend-production.up.railway.app";
   // Token de autenticacion
   const getAuthToken = () => localStorage.getItem('auth_token');
   const setAuthToken = (token) => localStorage.setItem('auth_token', token);
