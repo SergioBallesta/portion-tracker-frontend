@@ -44,7 +44,7 @@ const PortionTracker = () => {
   const [consumedFoods, setConsumedFoods] = useState({});
 
   // URL del backend
-  const API_BASE = "/api";
+	const API_BASE = process.env.NEXT_PUBLIC_API_URL || "https://portion-tracker-backend-production.up.railway.app/";
 
   // Token de autenticacion
   const getAuthToken = () => localStorage.getItem('auth_token');
@@ -688,96 +688,102 @@ const PortionTracker = () => {
             </div>
           </div>
 
-          {showLogin && (
-            <form onSubmit={handleLogin}>
-              <div style={{ marginBottom: '20px' }}>
-                <label style={{ 
-                  display: 'block', 
-                  color: '#374151', 
-                  fontSize: '14px', 
-                  fontWeight: '500', 
-                  marginBottom: '6px' 
-                }}>
-                  Email
-                </label>
-                <input
-                  type="email"
-                  value={loginData.email}
-					onChange={(e) => setLoginData({...loginData, email: e.target.value})}
-                  style={{
-                    width: '100%',
-                    padding: '12px',
-                    border: '1px solid #d1d5db',
-                    borderRadius: '8px',
-                    fontSize: '14px',
-                    outline: 'none',
-                    boxSizing: 'border-box'
-                  }}
-                  placeholder="tu@email.com"
-                  required
-                />
-              </div>
-              
-              <div style={{ marginBottom: '20px' }}>
-                <label style={{ 
-                  display: 'block', 
-                  color: '#374151', 
-                  fontSize: '14px', 
-                  fontWeight: '500', 
-                  marginBottom: '6px' 
-                }}>
-                  Contrasena
-                </label>
-                <div style={{ position: 'relative' }}>
-                  <input
-                    type={showPassword ? 'text' : 'password'}
-                    value={loginData.password}
-						onChange={(e) => setLoginData({...loginData, password: e.target.value})}
-                    style={{
-                      width: '100%',
-                      padding: '12px',
-                      paddingRight: '40px',
-                      border: '1px solid #d1d5db',
-                      borderRadius: '8px',
-                      fontSize: '14px',
-                      outline: 'none',
-                      boxSizing: 'border-box'
-                    }}
-                    placeholder="Minimo 6 caracteres"
-                    required
-                  />
-                  <button
-                    type="button"
-                    onClick={() => setShowPassword(!showPassword)}
-                    style={{
-                      position: 'absolute',
-                      right: '12px',
-                      top: '50%',
-                      transform: 'translateY(-50%)',
-                      background: 'none',
-                      border: 'none',
-                      color: '#6b7280',
-                      cursor: 'pointer'
-                    }}
-                  >
-                    {showPassword ? <EyeOff size={16} /> : <Eye size={16} />}
-                  </button>
-                </div>
-              </div>
-              <button
-				  type="submit"
-				  disabled={authLoading}
-				  style={{
-					width: '100%',
-					background: authLoading ? '#9ca3af' : '#2563eb', // Azul para login
-					//...
-				  }}
-				>
-				  {authLoading ? 'Iniciando...' : 'Iniciar Sesion'}
-				</button>
-            </form>
-          )}
-				{!showLogin && (
+          {showLogin ? (
+				  <form onSubmit={handleLogin}>
+					<div style={{ marginBottom: '20px' }}>
+					  <label style={{ 
+						display: 'block', 
+						color: '#374151', 
+						fontSize: '14px', 
+						fontWeight: '500', 
+						marginBottom: '6px' 
+					  }}>
+						Email
+					  </label>
+					  <input
+						type="email"
+						value={loginData.email}
+						onChange={(e) => setLoginData({...loginData, email: e.target.value})}
+						style={{
+						  width: '100%',
+						  padding: '12px',
+						  border: '1px solid #d1d5db',
+						  borderRadius: '8px',
+						  fontSize: '14px',
+						  outline: 'none',
+						  boxSizing: 'border-box'
+						}}
+						placeholder="tu@email.com"
+						required
+					  />
+					</div>
+					
+					<div style={{ marginBottom: '24px' }}>
+					  <label style={{ 
+						display: 'block', 
+						color: '#374151', 
+						fontSize: '14px', 
+						fontWeight: '500', 
+						marginBottom: '6px' 
+					  }}>
+						Contrasena
+					  </label>
+					  <div style={{ position: 'relative' }}>
+						<input
+						  type={showPassword ? 'text' : 'password'}
+						  value={loginData.password}
+						  onChange={(e) => setLoginData({...loginData, password: e.target.value})}
+						  style={{
+							width: '100%',
+							padding: '12px',
+							paddingRight: '40px',
+							border: '1px solid #d1d5db',
+							borderRadius: '8px',
+							fontSize: '14px',
+							outline: 'none',
+							boxSizing: 'border-box'
+						  }}
+						  placeholder="Tu contrasena"
+						  required
+						/>
+						<button
+						  type="button"
+						  onClick={() => setShowPassword(!showPassword)}
+						  style={{
+							position: 'absolute',
+							right: '12px',
+							top: '50%',
+							transform: 'translateY(-50%)',
+							background: 'none',
+							border: 'none',
+							color: '#6b7280',
+							cursor: 'pointer'
+						  }}
+						>
+						  {showPassword ? <EyeOff size={16} /> : <Eye size={16} />}
+						</button>
+					  </div>
+					</div>
+					
+					<button
+					  type="submit"
+					  disabled={authLoading}
+					  style={{
+						width: '100%',
+						background: authLoading ? '#9ca3af' : '#2563eb',
+						color: 'white',
+						border: 'none',
+						padding: '12px',
+						borderRadius: '8px',
+						fontSize: '16px',
+						fontWeight: '600',
+						cursor: authLoading ? 'not-allowed' : 'pointer'
+					  }}
+					>
+					  {authLoading ? 'Iniciando...' : 'Iniciar Sesion'}
+					</button>
+				  </form>
+				) : (
 				  <form onSubmit={handleRegister}>
 					<div style={{ marginBottom: '20px' }}>
 					  <label style={{ 
@@ -900,7 +906,7 @@ const PortionTracker = () => {
 					  {authLoading ? 'Registrando...' : 'Crear Cuenta'}
 					</button>
 				  </form>
-				)}
+)}
           <div style={{ 
             textAlign: 'center', 
             marginTop: '20px', 
