@@ -1,9 +1,18 @@
 import React, { useState, useEffect } from 'react';
-import { Plus, Search, Trash2, Settings, Utensils, AlertCircle, Clock, Target, Edit3, Save, X, Scale, Activity, BarChart3, Download, Upload } from 'lucide-react';
+import { Plus, Search, Trash2, Settings, Utensils, AlertCircle, Clock, Target, Edit3, Save, X, Scale, Activity, BarChart3, LogIn, LogOut, UserPlus, User } from 'lucide-react';
 import './App.css';
 
 const PortionTracker = () => {
-  // CONSTANTES PARA KEYS DE LOCALSTORAGE
+  // ESTADOS DE AUTENTICACION
+  const [user, setUser] = useState(null);
+  const [isAuthenticated, setIsAuthenticated] = useState(false);
+  const [showAuth, setShowAuth] = useState(false);
+  const [authMode, setAuthMode] = useState('login'); // 'login' o 'register'
+  const [authForm, setAuthForm] = useState({ email: '', password: '', confirmPassword: '' });
+  const [authLoading, setAuthLoading] = useState(false);
+  const [isLoadingAuth, setIsLoadingAuth] = useState(true);
+
+  // CONSTANTES PARA KEYS DE LOCALSTORAGE (mantener como fallback)
   const STORAGE_KEYS = {
     PERSONAL_FOODS: 'personalFoods',
     MEAL_CONFIG: 'mealConfig', 
@@ -13,10 +22,12 @@ const PortionTracker = () => {
     SEARCH_HISTORY: 'searchHistory'
   };
 
-  // FUNCIONES HELPER PARA PERSISTENCIA
+  // FUNCIONES HELPER PARA PERSISTENCIA LOCAL (fallback)
   const saveToStorage = (key, data) => {
     try {
-      localStorage.setItem(key, JSON.stringify(data));
+      if (!isAuthenticated) {
+        localStorage.setItem(key, JSON.stringify(data));
+      }
     } catch (error) {
       console.error('Error guardando en localStorage:', error);
     }
@@ -24,8 +35,11 @@ const PortionTracker = () => {
 
   const loadFromStorage = (key, defaultValue = null) => {
     try {
-      const stored = localStorage.getItem(key);
-      return stored ? JSON.parse(stored) : defaultValue;
+      if (!isAuthenticated) {
+        const stored = localStorage.getItem(key);
+        return stored ? JSON.parse(stored) : defaultValue;
+      }
+      return defaultValue;
     } catch (error) {
       console.error('Error cargando de localStorage:', error);
       return defaultValue;
@@ -64,7 +78,7 @@ const PortionTracker = () => {
   // Registro de alimentos consumidos
   const [consumedFoods, setConsumedFoods] = useState({});
 
-  // NUEVO: Historial de busquedas
+  // Historial de busquedas
   const [searchHistory, setSearchHistory] = useState([]);
 
   // URL del backend
@@ -80,60 +94,261 @@ const PortionTracker = () => {
     lacteos: { name: 'Lacteos', color: 'bg-teal-100 border-teal-300 text-teal-800', icon: 'L', defaultGrams: 250 }
   };
 
-  // CARGAR DATOS INICIALES CON SISTEMA COMPLETO
+  // FUNCIONES DE AUTENTICACION
+  const checkAuthStatus = async () => {
+    try {
+      const token = localStorage.getItem('authToken');
+      if (!token) {
+        setIsAuthenticated(false);
+        setIsLoadingAuth(false);
+        return;
+      }
+
+      const response = await fetch(`${API_BASE}/auth/me`, {
+        headers: { 'Authorization': `Bearer ${token}` }
+      });
+
+      if (response.ok) {
+        const userData = await response.json();
+        setUser(userData);
+        setIsAuthenticated(true);
+        await loadUserData();
+      } else {
+        localStorage.removeItem('authToken');
+        setIsAuthenticated(false);
+      }
+    } catch (error) {
+      console.error('Error verificando autenticacion:', error);
+      setIsAuthenticated(false);
+    } finally {
+      setIsLoadingAuth(false);
+    }
+  };
+
+  const handleAuth = async (e) => {
+    e.preventDefault();
+    setAuthLoading(true);
+    setError('');
+
+    try {
+      if (authMode === 'register' && authForm.password !== authForm.confirmPassword) {
+        setError('Las contrasenas no coinciden');
+        setAuthLoading(false);
+        return;
+      }
+
+      const endpoint = authMode === 'login' ? '/auth/login' : '/auth/register';
+      const response = await fetch(`${API_BASE}${endpoint}`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          email: authForm.email,
+          password: authForm.password
+        })
+      });
+
+      const data = await response.json();
+
+      if (response.ok) {
+        localStorage.setItem('authToken', data.token);
+        setUser(data.user);
+        setIsAuthenticated(true);
+        setShowAuth(false);
+        setAuthForm({ email: '', password: '', confirmPassword: '' });
+        
+        if (authMode === 'login') {
+          await loadUserData();
+        } else {
+          // Usuario nuevo - guardar configuracion local inicial
+          await saveUserProfile();
+        }
+        
+        setShowSetup(false);
+      } else {
+        setError(data.error || 'Error en autenticacion');
+      }
+    } catch (error) {
+      console.error('Error en autenticacion:', error);
+      setError('Error de conexion');
+    } finally {
+      setAuthLoading(false);
+    }
+  };
+
+  const handleLogout = () => {
+    localStorage.removeItem('authToken');
+    setUser(null);
+    setIsAuthenticated(false);
+    
+    // Limpiar datos
+    setPersonalFoods({});
+    setConsumedFoods({});
+    setPortionDistribution({});
+    setMealNames(['Desayuno', 'Almuerzo', 'Cena']);
+    setMealCount(3);
+    setCurrentMeal(0);
+    setSearchHistory([]);
+    setShowSetup(true);
+  };
+
+  // FUNCIONES DE SINCRONIZACION CON SERVIDOR
+  const loadUserData = async () => {
+    try {
+      const token = localStorage.getItem('authToken');
+      if (!token) return;
+
+      // Cargar perfil de usuario
+      const profileResponse = await fetch(`${API_BASE}/user/profile`, {
+        headers: { 'Authorization': `Bearer ${token}` }
+      });
+
+      if (profileResponse.ok) {
+        const profile = await profileResponse.json();
+        setMealNames(profile.meal_names || ['Desayuno', 'Almuerzo', 'Cena']);
+        setMealCount(profile.meal_count || 3);
+        setPortionDistribution(profile.portion_distribution || {});
+        setPersonalFoods(profile.personal_foods || {});
+      }
+
+      // Cargar alimentos consumidos del dia actual
+      const today = new Date().toISOString().split('T')[0];
+      const consumedResponse = await fetch(`${API_BASE}/user/consumed-foods/${today}`, {
+        headers: { 'Authorization': `Bearer ${token}` }
+      });
+
+      if (consumedResponse.ok) {
+        const consumedData = await consumedResponse.json();
+        setConsumedFoods(consumedData.consumed_foods || {});
+      }
+
+    } catch (error) {
+      console.error('Error cargando datos de usuario:', error);
+    }
+  };
+
+  const saveUserProfile = async () => {
+    try {
+      const token = localStorage.getItem('authToken');
+      if (!token || !isAuthenticated) return;
+
+      await fetch(`${API_BASE}/user/profile`, {
+        method: 'PUT',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+          meal_names: mealNames,
+          meal_count: mealCount,
+          portion_distribution: portionDistribution,
+          personal_foods: personalFoods
+        })
+      });
+    } catch (error) {
+      console.error('Error guardando perfil:', error);
+    }
+  };
+
+  const saveConsumedFoods = async () => {
+    try {
+      const token = localStorage.getItem('authToken');
+      if (!token || !isAuthenticated) return;
+
+      const today = new Date().toISOString().split('T')[0];
+      await fetch(`${API_BASE}/user/consumed-foods`, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+          date: today,
+          consumed_foods: consumedFoods
+        })
+      });
+    } catch (error) {
+      console.error('Error guardando alimentos consumidos:', error);
+    }
+  };
+
+  // CARGAR DATOS INICIALES
   useEffect(() => {
-    // Cargar configuracion de comidas
-    const savedConfig = loadFromStorage(STORAGE_KEYS.MEAL_CONFIG);
-    if (savedConfig) {
-      setMealNames(savedConfig.mealNames || ['Desayuno', 'Almuerzo', 'Cena']);
-      setMealCount(savedConfig.mealCount || 3);
-    }
-
-    // Cargar alimentos personales
-    const savedPersonalFoods = loadFromStorage(STORAGE_KEYS.PERSONAL_FOODS, {});
-    setPersonalFoods(savedPersonalFoods);
-
-    // Cargar distribucion de porciones
-    const savedPortionDistribution = loadFromStorage(STORAGE_KEYS.PORTION_DISTRIBUTION);
-    if (savedPortionDistribution) {
-      setPortionDistribution(savedPortionDistribution);
-    }
-
-    // Cargar alimentos consumidos del dia actual
-    const today = new Date().toDateString();
-    const savedConsumedFoods = loadFromStorage(`${STORAGE_KEYS.CONSUMED_FOODS}_${today}`, {});
-    setConsumedFoods(savedConsumedFoods);
-
-    // Cargar comida actual
-    const savedCurrentMeal = loadFromStorage(STORAGE_KEYS.CURRENT_MEAL, 0);
-    setCurrentMeal(savedCurrentMeal);
-
-    // Cargar historial de busquedas
-    const savedSearchHistory = loadFromStorage(STORAGE_KEYS.SEARCH_HISTORY, []);
-    setSearchHistory(savedSearchHistory);
-
-    // Limpiar datos antiguos al cargar
-    clearOldData();
+    checkAuthStatus();
   }, []);
 
-  // USEEFFECTS PARA GUARDAR CAMBIOS AUTOMATICAMENTE
+  // CARGAR DATOS LOCALES SI NO ESTA AUTENTICADO
   useEffect(() => {
-    const config = { mealNames, mealCount };
-    saveToStorage(STORAGE_KEYS.MEAL_CONFIG, config);
-  }, [mealNames, mealCount]);
+    if (!isAuthenticated && !isLoadingAuth) {
+      // Cargar configuracion de comidas
+      const savedConfig = loadFromStorage(STORAGE_KEYS.MEAL_CONFIG);
+      if (savedConfig) {
+        setMealNames(savedConfig.mealNames || ['Desayuno', 'Almuerzo', 'Cena']);
+        setMealCount(savedConfig.mealCount || 3);
+      }
+
+      // Cargar alimentos personales
+      const savedPersonalFoods = loadFromStorage(STORAGE_KEYS.PERSONAL_FOODS, {});
+      setPersonalFoods(savedPersonalFoods);
+
+      // Cargar distribucion de porciones
+      const savedPortionDistribution = loadFromStorage(STORAGE_KEYS.PORTION_DISTRIBUTION);
+      if (savedPortionDistribution) {
+        setPortionDistribution(savedPortionDistribution);
+      }
+
+      // Cargar alimentos consumidos del dia actual
+      const today = new Date().toDateString();
+      const savedConsumedFoods = loadFromStorage(`${STORAGE_KEYS.CONSUMED_FOODS}_${today}`, {});
+      setConsumedFoods(savedConsumedFoods);
+
+      // Cargar comida actual
+      const savedCurrentMeal = loadFromStorage(STORAGE_KEYS.CURRENT_MEAL, 0);
+      setCurrentMeal(savedCurrentMeal);
+
+      // Cargar historial de busquedas
+      const savedSearchHistory = loadFromStorage(STORAGE_KEYS.SEARCH_HISTORY, []);
+      setSearchHistory(savedSearchHistory);
+    }
+  }, [isAuthenticated, isLoadingAuth]);
+
+  // GUARDAR CAMBIOS AUTOMATICAMENTE
+  useEffect(() => {
+    if (isAuthenticated) {
+      saveUserProfile();
+    } else {
+      const config = { mealNames, mealCount };
+      saveToStorage(STORAGE_KEYS.MEAL_CONFIG, config);
+    }
+  }, [mealNames, mealCount, isAuthenticated]);
 
   useEffect(() => {
-    saveToStorage(STORAGE_KEYS.PORTION_DISTRIBUTION, portionDistribution);
-  }, [portionDistribution]);
+    if (isAuthenticated) {
+      saveUserProfile();
+    } else {
+      saveToStorage(STORAGE_KEYS.PORTION_DISTRIBUTION, portionDistribution);
+    }
+  }, [portionDistribution, isAuthenticated]);
 
   useEffect(() => {
-    const today = new Date().toDateString();
-    saveToStorage(`${STORAGE_KEYS.CONSUMED_FOODS}_${today}`, consumedFoods);
-  }, [consumedFoods]);
+    if (isAuthenticated) {
+      saveUserProfile();
+    }
+  }, [personalFoods, isAuthenticated]);
 
   useEffect(() => {
-    saveToStorage(STORAGE_KEYS.CURRENT_MEAL, currentMeal);
-  }, [currentMeal]);
+    if (isAuthenticated) {
+      saveConsumedFoods();
+    } else {
+      const today = new Date().toDateString();
+      saveToStorage(`${STORAGE_KEYS.CONSUMED_FOODS}_${today}`, consumedFoods);
+    }
+  }, [consumedFoods, isAuthenticated]);
+
+  useEffect(() => {
+    if (!isAuthenticated) {
+      saveToStorage(STORAGE_KEYS.CURRENT_MEAL, currentMeal);
+    }
+  }, [currentMeal, isAuthenticated]);
 
   // Verificar estado del backend al cargar
   useEffect(() => {
@@ -143,22 +358,17 @@ const PortionTracker = () => {
   useEffect(() => {
     const timeoutId = setTimeout(() => {
       if (searchTerm.length >= 2) {
-        console.log('Ejecutando busqueda automatica para:', searchTerm);
         searchFoodsAPI(searchTerm);
       } else {
-        console.log('Limpiando resultados - termino muy corto:', searchTerm);
         setSearchResults([]);
         setIsSearching(false);
       }
     }, 500);
 
-    return () => {
-      console.log('Cancelando timeout de busqueda');
-      clearTimeout(timeoutId);
-    };
+    return () => clearTimeout(timeoutId);
   }, [searchTerm, backendStatus]);
 
-  // NUEVAS FUNCIONES DE GESTION DE DATOS
+  // RESTO DE FUNCIONES EXISTENTES (sin cambios en la logica principal)
   const saveSearchToHistory = (searchTerm, results) => {
     if (results.length > 0) {
       const newHistory = [
@@ -166,77 +376,29 @@ const PortionTracker = () => {
         ...searchHistory.filter(h => h.term !== searchTerm).slice(0, 9)
       ];
       setSearchHistory(newHistory);
-      saveToStorage(STORAGE_KEYS.SEARCH_HISTORY, newHistory);
+      if (!isAuthenticated) {
+        saveToStorage(STORAGE_KEYS.SEARCH_HISTORY, newHistory);
+      }
     }
   };
 
   const clearOldData = () => {
-    const today = new Date().toDateString();
-    const keys = Object.keys(localStorage);
-    
-    keys.forEach(key => {
-      if (key.startsWith(STORAGE_KEYS.CONSUMED_FOODS) && !key.includes(today)) {
-        const dateStr = key.replace(STORAGE_KEYS.CONSUMED_FOODS + '_', '');
-        const date = new Date(dateStr);
-        const daysDiff = (new Date(today) - date) / (1000 * 60 * 60 * 24);
-        
-        if (daysDiff > 7) {
-          localStorage.removeItem(key);
+    if (!isAuthenticated) {
+      const today = new Date().toDateString();
+      const keys = Object.keys(localStorage);
+      
+      keys.forEach(key => {
+        if (key.startsWith(STORAGE_KEYS.CONSUMED_FOODS) && !key.includes(today)) {
+          const dateStr = key.replace(STORAGE_KEYS.CONSUMED_FOODS + '_', '');
+          const date = new Date(dateStr);
+          const daysDiff = (new Date(today) - date) / (1000 * 60 * 60 * 24);
+          
+          if (daysDiff > 7) {
+            localStorage.removeItem(key);
+          }
         }
-      }
-    });
-  };
-
-  const exportData = () => {
-    const today = new Date().toDateString();
-    const exportData = {
-      personalFoods,
-      mealConfig: { mealNames, mealCount },
-      portionDistribution,
-      consumedFoods,
-      searchHistory,
-      exportDate: today,
-      version: '1.0'
-    };
-    
-    const dataStr = JSON.stringify(exportData, null, 2);
-    const dataBlob = new Blob([dataStr], { type: 'application/json' });
-    const url = URL.createObjectURL(dataBlob);
-    
-    const link = document.createElement('a');
-    link.href = url;
-    link.download = `portion-tracker-backup-${today.replace(/\s/g, '-')}.json`;
-    link.click();
-    
-    URL.revokeObjectURL(url);
-  };
-
-  const importData = (file) => {
-    const reader = new FileReader();
-    reader.onload = (e) => {
-      try {
-        const importedData = JSON.parse(e.target.result);
-        
-        if (importedData.personalFoods) {
-          setPersonalFoods(importedData.personalFoods);
-          saveToStorage(STORAGE_KEYS.PERSONAL_FOODS, importedData.personalFoods);
-        }
-        
-        if (importedData.mealConfig) {
-          setMealNames(importedData.mealConfig.mealNames);
-          setMealCount(importedData.mealConfig.mealCount);
-        }
-        
-        if (importedData.portionDistribution) {
-          setPortionDistribution(importedData.portionDistribution);
-        }
-        
-        alert('Datos importados correctamente');
-      } catch (error) {
-        alert('Error al importar datos: ' + error.message);
-      }
-    };
-    reader.readAsText(file);
+      });
+    }
   };
 
   const resetTodayData = () => {
@@ -247,7 +409,6 @@ const PortionTracker = () => {
     }
   };
 
-  // Verificar estado del backend
   const checkBackendHealth = async () => {
     try {
       setError('Conectando con servidor...');
@@ -296,14 +457,12 @@ const PortionTracker = () => {
     }
   };
 
-  // MODIFICAR searchFoodsAPI para incluir guardado de historial
   const searchFoodsAPI = async (term) => {
     if (!term || term.length < 2) {
       setSearchResults([]);
       return;
     }
 
-    console.log(`?? Iniciando busqueda para: "${term}"`);
     setIsSearching(true);
     setError('');
 
@@ -314,7 +473,6 @@ const PortionTracker = () => {
     };
 
     const normalizeFoods = (data) => {
-      console.log('?? Datos recibidos para normalizar:', data);
       let list = [];
       if (Array.isArray(data)) list = data;
       else if (Array.isArray(data?.foods)) list = data.foods;
@@ -339,43 +497,29 @@ const PortionTracker = () => {
         };
       });
 
-      console.log(`? ${normalized.length} alimentos normalizados:`, normalized);
       return normalized;
     };
 
     try {
       if (backendStatus === 'connected') {
-        console.log(`?? Realizando peticion a: ${API_BASE}/search`);
-
         let res = await fetch(`${API_BASE}/search`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ query: term, maxResults: 15 })
         });
 
-        console.log(`?? Respuesta del servidor: ${res.status} ${res.statusText}`);
-
         if (res.status === 404 || res.status === 405) {
-          console.log('?? Probando endpoint fallback...');
           res = await fetch(`${API_BASE}/test-search/${encodeURIComponent(term)}`);
-          console.log(`?? Respuesta fallback: ${res.status} ${res.statusText}`);
         }
 
         if (res.ok) {
           const data = await res.json();
-          console.log('?? Datos recibidos del servidor:', data);
           const processed = normalizeFoods(data);
-
           setSearchResults(processed);
-          saveSearchToHistory(term, processed); // NUEVA LINEA
-          console.log(`? ${processed.length} alimentos procesados y guardados en estado`);
-          
-          setTimeout(() => {
-            console.log('?? Estado actual de searchResults:', processed);
-          }, 100);
+          saveSearchToHistory(term, processed);
         } else {
           const errorText = await res.text();
-          console.error('? Error en busqueda:', {
+          console.error('Error en busqueda:', {
             status: res.status,
             statusText: res.statusText,
             body: errorText
@@ -384,17 +528,15 @@ const PortionTracker = () => {
           setError(`Error en busqueda: ${res.status} ${res.statusText}`);
         }
       } else {
-        console.log('?? Backend no conectado, limpiando resultados');
         setSearchResults([]);
         setError('Backend no conectado');
       }
     } catch (err) {
-      console.error('?? Error de conexion:', err);
+      console.error('Error de conexion:', err);
       setSearchResults([]);
       setError(`Error de conexion: ${err.message}`);
     } finally {
       setIsSearching(false);
-      console.log('?? Busqueda finalizada');
     }
   };
 
@@ -437,7 +579,6 @@ const PortionTracker = () => {
 
       if (res.ok) {
         const data = await res.json();
-        console.log('Detalles nutricionales:', data);
         return data;
       }
     } catch (error) {
@@ -446,20 +587,12 @@ const PortionTracker = () => {
     return null;
   };
 
-  // MODIFICAR savePersonalFoods para usar el sistema nuevo
   const savePersonalFoods = (foods) => {
     setPersonalFoods(foods);
-    saveToStorage(STORAGE_KEYS.PERSONAL_FOODS, foods);
+    if (!isAuthenticated) {
+      saveToStorage(STORAGE_KEYS.PERSONAL_FOODS, foods);
+    }
   };
-
-  const saveConfiguration = () => {
-    const config = { mealNames, mealCount, portionDistribution };
-    saveToStorage(STORAGE_KEYS.MEAL_CONFIG, config);
-  };
-
-  useEffect(() => {
-    saveConfiguration();
-  }, [mealNames, mealCount, portionDistribution]);
 
   useEffect(() => {
     if (Object.keys(portionDistribution).length === 0) {
@@ -723,45 +856,283 @@ const PortionTracker = () => {
 
   const connectionStatus = getConnectionStatus();
 
+  // COMPONENTE DE AUTENTICACION
+  const AuthModal = () => (
+    <div className="modal-overlay">
+      <div className="modal">
+        <h3>{authMode === 'login' ? 'Iniciar Sesion' : 'Registrarse'}</h3>
+        
+        <form onSubmit={handleAuth}>
+          <div style={{ marginBottom: '16px' }}>
+            <label style={{ display: 'block', marginBottom: '8px' }}>
+              Email:
+            </label>
+            <input
+              type="email"
+              value={authForm.email}
+              onChange={(e) => setAuthForm({...authForm, email: e.target.value})}
+              style={{ width: '100%', padding: '8px', border: '1px solid #d1d5db', borderRadius: '6px' }}
+              required
+            />
+          </div>
+          
+          <div style={{ marginBottom: '16px' }}>
+            <label style={{ display: 'block', marginBottom: '8px' }}>
+              Contrasena:
+            </label>
+            <input
+              type="password"
+              value={authForm.password}
+              onChange={(e) => setAuthForm({...authForm, password: e.target.value})}
+              style={{ width: '100%', padding: '8px', border: '1px solid #d1d5db', borderRadius: '6px' }}
+              required
+              minLength="6"
+            />
+          </div>
+          
+          {authMode === 'register' && (
+            <div style={{ marginBottom: '16px' }}>
+              <label style={{ display: 'block', marginBottom: '8px' }}>
+                Confirmar Contrasena:
+              </label>
+              <input
+                type="password"
+                value={authForm.confirmPassword}
+                onChange={(e) => setAuthForm({...authForm, confirmPassword: e.target.value})}
+                style={{ width: '100%', padding: '8px', border: '1px solid #d1d5db', borderRadius: '6px' }}
+                required
+                minLength="6"
+              />
+            </div>
+          )}
+          
+          <div style={{ display: 'flex', gap: '8px', marginBottom: '16px' }}>
+            <button 
+              type="submit" 
+              disabled={authLoading}
+              style={{ 
+                flex: 1, 
+                background: '#2563eb', 
+                color: 'white', 
+                border: 'none', 
+                padding: '8px', 
+                borderRadius: '6px',
+                opacity: authLoading ? 0.7 : 1
+              }}
+            >
+              {authLoading ? 'Procesando...' : (authMode === 'login' ? 'Iniciar Sesion' : 'Registrarse')}
+            </button>
+            <button 
+              type="button"
+              onClick={() => setShowAuth(false)} 
+              className="cancel-btn-modal"
+            >
+              Cancelar
+            </button>
+          </div>
+        </form>
+        
+        <div style={{ textAlign: 'center', fontSize: '14px' }}>
+          {authMode === 'login' ? (
+            <>
+              ?No tienes cuenta?{' '}
+              <button 
+                type="button"
+                onClick={() => setAuthMode('register')}
+                style={{ background: 'none', border: 'none', color: '#2563eb', textDecoration: 'underline', cursor: 'pointer' }}
+              >
+                Registrate
+              </button>
+            </>
+          ) : (
+            <>
+              ?Ya tienes cuenta?{' '}
+              <button 
+                type="button"
+                onClick={() => setAuthMode('login')}
+                style={{ background: 'none', border: 'none', color: '#2563eb', textDecoration: 'underline', cursor: 'pointer' }}
+              >
+                Inicia sesion
+              </button>
+            </>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+
+  // COMPONENTE DE HISTORIAL DE BUSQUEDAS
+  const SearchHistoryComponent = () => (
+    searchHistory.length > 0 && (
+      <div style={{ marginBottom: '16px', padding: '12px', background: '#f8fafc', borderRadius: '8px', border: '1px solid #e2e8f0' }}>
+        <h4 style={{ fontSize: '12px', fontWeight: '600', color: '#475569', marginBottom: '8px' }}>Busquedas Recientes</h4>
+        <div style={{ display: 'flex', gap: '4px', flexWrap: 'wrap' }}>
+          {searchHistory.slice(0, 5).map((search, index) => (
+            <button
+              key={index}
+              onClick={() => setSearchTerm(search.term)}
+              style={{ 
+                padding: '4px 8px', 
+                fontSize: '11px', 
+                background: '#e2e8f0', 
+                border: 'none', 
+                borderRadius: '4px', 
+                cursor: 'pointer',
+                color: '#475569'
+              }}
+            >
+              {search.term} ({search.resultCount})
+            </button>
+          ))}
+        </div>
+      </div>
+    )
+  );
+
+  // LOADING INICIAL
+  if (isLoadingAuth) {
+    return (
+      <div className="app">
+        <div className="header">
+          <h1>Control de Porciones</h1>
+          <p style={{ color: '#bfdbfe', textAlign: 'center', padding: '20px' }}>
+            Cargando...
+          </p>
+        </div>
+      </div>
+    );
+  }
+
+  // PANTALLA PARA USUARIOS NO AUTENTICADOS
+  if (!isAuthenticated) {
+    return (
+      <div className="app">
+        {showAuth && <AuthModal />}
+        
+        <div className="header">
+          <div className="header-top">
+            <h1>Control de Porciones</h1>
+            <button 
+              onClick={() => setShowAuth(true)}
+              className="header-btn"
+            >
+              <LogIn size={20} />
+            </button>
+          </div>
+          <p style={{ color: '#bfdbfe', textAlign: 'center', padding: '20px' }}>
+            Inicia sesion para sincronizar tus datos en todos tus dispositivos
+          </p>
+        </div>
+        
+        <div style={{ padding: '40px 20px', textAlign: 'center', color: '#1f2937' }}>
+          <h2>Bienvenido a Control de Porciones</h2>
+          <p style={{ marginBottom: '24px', color: '#6b7280' }}>
+            Gestiona tu alimentacion de forma inteligente con seguimiento personalizado
+          </p>
+          
+          <div style={{ display: 'flex', gap: '16px', justifyContent: 'center', flexWrap: 'wrap' }}>
+            <button 
+              onClick={() => {
+                setAuthMode('login');
+                setShowAuth(true);
+              }}
+              style={{ 
+                background: '#2563eb', 
+                color: 'white', 
+                border: 'none', 
+                padding: '12px 24px', 
+                borderRadius: '8px',
+                cursor: 'pointer',
+                display: 'flex',
+                alignItems: 'center',
+                gap: '8px'
+              }}
+            >
+              <LogIn size={20} />
+              Iniciar Sesion
+            </button>
+            
+            <button 
+              onClick={() => {
+                setAuthMode('register');
+                setShowAuth(true);
+              }}
+              style={{ 
+                background: '#059669', 
+                color: 'white', 
+                border: 'none', 
+                padding: '12px 24px', 
+                borderRadius: '8px',
+                cursor: 'pointer',
+                display: 'flex',
+                alignItems: 'center',
+                gap: '8px'
+              }}
+            >
+              <UserPlus size={20} />
+              Registrarse
+            </button>
+            
+            <button 
+              onClick={() => {
+                setShowSetup(false);
+                clearOldData();
+              }}
+              style={{ 
+                background: '#6b7280', 
+                color: 'white', 
+                border: 'none', 
+                padding: '12px 24px', 
+                borderRadius: '8px',
+                cursor: 'pointer'
+              }}
+            >
+              Continuar sin cuenta
+            </button>
+          </div>
+          
+          <div style={{ marginTop: '40px', fontSize: '14px', color: '#6b7280' }}>
+            <h3>Caracteristicas:</h3>
+            <ul style={{ listStyle: 'none', padding: 0 }}>
+              <li>? Planes de alimentacion personalizados</li>
+              <li>? Seguimiento de porciones y calorias</li>
+              <li>? Base de datos nutricional completa</li>
+              <li>? Sincronizacion en todos tus dispositivos</li>
+            </ul>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
   if (showSetup) {
     return (
       <div className="app">
         <div className="header">
-          <h1>Configuracion de Plan</h1>
+          <div className="header-top">
+            <h1>Configuracion de Plan</h1>
+            <div className="header-buttons">
+              {isAuthenticated && (
+                <>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px', color: '#bfdbfe', fontSize: '12px' }}>
+                    <User size={16} />
+                    {user?.email}
+                  </div>
+                  <button 
+                    onClick={handleLogout}
+                    className="header-btn"
+                    title="Cerrar Sesion"
+                  >
+                    <LogOut size={20} />
+                  </button>
+                </>
+              )}
+            </div>
+          </div>
           <p style={{ color: '#bfdbfe' }}>Personaliza tus comidas y porciones</p>
         </div>
 
         <div className="setup-content">
-          {/* NUEVA SECCION DE GESTION DE DATOS */}
-          <div className="setup-section">
-            <h3>Gestion de Datos</h3>
-            <div style={{ display: 'flex', gap: '8px', marginBottom: '16px', flexWrap: 'wrap' }}>
-              <button onClick={exportData} style={{ background: '#059669', color: 'white', border: 'none', padding: '8px 12px', borderRadius: '6px', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '4px' }}>
-                <Download size={16} />
-                Exportar Datos
-              </button>
-              <label style={{ background: '#2563eb', color: 'white', border: 'none', padding: '8px 12px', borderRadius: '6px', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '4px' }}>
-                <Upload size={16} />
-                Importar Datos
-                <input 
-                  type="file" 
-                  accept=".json"
-                  onChange={(e) => e.target.files[0] && importData(e.target.files[0])}
-                  style={{ display: 'none' }}
-                />
-              </label>
-              <button onClick={clearOldData} style={{ background: '#f59e0b', color: 'white', border: 'none', padding: '8px 12px', borderRadius: '6px', cursor: 'pointer' }}>
-                Limpiar Antiguos
-              </button>
-              <button onClick={resetTodayData} style={{ background: '#ef4444', color: 'white', border: 'none', padding: '8px 12px', borderRadius: '6px', cursor: 'pointer' }}>
-                Reiniciar Hoy
-              </button>
-            </div>
-            <div style={{ fontSize: '12px', color: '#6b7280' }}>
-              Alimentos guardados: {Object.keys(personalFoods).length} | Busquedas: {searchHistory.length}
-            </div>
-          </div>
-
           <div className="setup-section">
             <div className="section-header">
               <h3>Tus Comidas</h3>
@@ -850,34 +1221,6 @@ const PortionTracker = () => {
     );
   }
 
-  // COMPONENTE DE HISTORIAL DE BUSQUEDAS
-  const SearchHistoryComponent = () => (
-    searchHistory.length > 0 && (
-      <div style={{ marginBottom: '16px', padding: '12px', background: '#f8fafc', borderRadius: '8px', border: '1px solid #e2e8f0' }}>
-        <h4 style={{ fontSize: '12px', fontWeight: '600', color: '#475569', marginBottom: '8px' }}>Busquedas Recientes</h4>
-        <div style={{ display: 'flex', gap: '4px', flexWrap: 'wrap' }}>
-          {searchHistory.slice(0, 5).map((search, index) => (
-            <button
-              key={index}
-              onClick={() => setSearchTerm(search.term)}
-              style={{ 
-                padding: '4px 8px', 
-                fontSize: '11px', 
-                background: '#e2e8f0', 
-                border: 'none', 
-                borderRadius: '4px', 
-                cursor: 'pointer',
-                color: '#475569'
-              }}
-            >
-              {search.term} ({search.resultCount})
-            </button>
-          ))}
-        </div>
-      </div>
-    )
-  );
-
   return (
     <div className="app">
       {/* Modal para editar cantidad consumida */}
@@ -922,20 +1265,43 @@ const PortionTracker = () => {
         <div className="header-top">
           <h1>Control de Porciones</h1>
           <div className="header-buttons">
-            <button 
-              onClick={() => setShowStats(true)}
-              className="header-btn"
-              title="Estadisticas"
-            >
-              <BarChart3 size={20} />
-            </button>
-            <button 
-              onClick={() => setShowSetup(true)}
-              className="header-btn"
-              title="Configuracion"
-            >
-              <Settings size={20} />
-            </button>
+            {isAuthenticated ? (
+              <>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '8px', color: '#bfdbfe', fontSize: '12px' }}>
+                  <User size={16} />
+                  {user?.email}
+                </div>
+                <button 
+                  onClick={() => setShowStats(true)}
+                  className="header-btn"
+                  title="Estadisticas"
+                >
+                  <BarChart3 size={20} />
+                </button>
+                <button 
+                  onClick={() => setShowSetup(true)}
+                  className="header-btn"
+                  title="Configuracion"
+                >
+                  <Settings size={20} />
+                </button>
+                <button 
+                  onClick={handleLogout}
+                  className="header-btn"
+                  title="Cerrar Sesion"
+                >
+                  <LogOut size={20} />
+                </button>
+              </>
+            ) : (
+              <button 
+                onClick={() => setShowAuth(true)}
+                className="header-btn"
+                title="Iniciar Sesion"
+              >
+                <LogIn size={20} />
+              </button>
+            )}
           </div>
         </div>
         
@@ -970,6 +1336,11 @@ const PortionTracker = () => {
             <div style={{ width: '8px', height: '8px', borderRadius: '50%', marginRight: '4px', backgroundColor: connectionStatus.color }}></div>
             {connectionStatus.text}
           </span>
+          {isAuthenticated && (
+            <span style={{ marginLeft: '8px', fontSize: '12px', color: '#22c55e' }}>
+              ¡E Sincronizado
+            </span>
+          )}
         </div>
       </div>
 
@@ -1356,7 +1727,6 @@ const PortionTracker = () => {
             />
           </div>
 
-          {/* AGREGAR HISTORIAL DE BUSQUEDAS */}
           <SearchHistoryComponent />
 
           {isSearching && (
@@ -1493,7 +1863,7 @@ const PortionTracker = () => {
           <div style={{ marginBottom: '4px' }}>? <strong>Categoriza y define gramos</strong> por porcion la primera vez</div>
           <div style={{ marginBottom: '4px' }}>? <strong>Anade automaticamente</strong> en siguientes busquedas</div>
           <div style={{ marginBottom: '4px' }}>? <strong>Seguimiento completo</strong> de calorias y macros</div>
-          <div>? <strong>Datos guardados automaticamente</strong> - no se pierden al cerrar</div>
+          <div>? <strong>Datos {isAuthenticated ? 'sincronizados en la nube' : 'guardados localmente'}</strong></div>
         </div>
         
         {backendStatus !== 'connected' && (
@@ -1502,9 +1872,15 @@ const PortionTracker = () => {
           </div>
         )}
         
-        <div style={{ marginTop: '8px', fontSize: '11px', color: '#059669', backgroundColor: '#d1fae5', padding: '8px', borderRadius: '6px' }}>
-          <strong>Persistencia Activa:</strong> Tus datos se guardan automaticamente por fecha. Puedes exportar/importar desde Configuracion.
-        </div>
+        {isAuthenticated ? (
+          <div style={{ marginTop: '8px', fontSize: '11px', color: '#059669', backgroundColor: '#d1fae5', padding: '8px', borderRadius: '6px' }}>
+            <strong>Cuenta sincronizada:</strong> Tus datos se guardan automaticamente en la nube y se sincronizan entre dispositivos.
+          </div>
+        ) : (
+          <div style={{ marginTop: '8px', fontSize: '11px', color: '#2563eb', backgroundColor: '#eff6ff', padding: '8px', borderRadius: '6px' }}>
+            <strong>Modo local:</strong> Los datos se guardan en tu navegador. Para sincronizar entre dispositivos, <button onClick={() => setShowAuth(true)} style={{ background: 'none', border: 'none', color: '#2563eb', textDecoration: 'underline', cursor: 'pointer' }}>inicia sesion</button>.
+          </div>
+        )}
       </div>
     </div>
   );
