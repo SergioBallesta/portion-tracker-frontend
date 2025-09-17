@@ -96,48 +96,72 @@ const PortionTracker = () => {
   }, []);
 
   // Cargar datos del usuario autenticado
-  const loadUserData = async () => {
-    try {
-      // Cargar perfil de usuario
-      const profileResponse = await fetch(`${API_BASE}/user/profile`, {
-        headers: getAuthHeaders()
-      });
+	const loadUserData = async () => {
+	  try {
+		// Cargar perfil de usuario
+		const profileResponse = await fetch(`${API_BASE}/user/profile`, {
+		  headers: getAuthHeaders()
+		});
 
-      if (profileResponse.ok) {
-        const profile = await profileResponse.json();
-        setMealNames(profile.meal_names || ['Desayuno', 'Almuerzo', 'Cena']);
-        setMealCount(profile.meal_count || 3);
-        setPortionDistribution(profile.portion_distribution || {});
-        setPersonalFoods(profile.personal_foods || {});
-      }
+		if (profileResponse.ok) {
+		  const profile = await profileResponse.json();
+		  
+		  // Solo asignar si hay datos, mantener valores por defecto si no
+		  if (profile.meal_names && profile.meal_names.length > 0) {
+			setMealNames(profile.meal_names);
+			setMealCount(profile.meal_names.length);
+		  }
+		  
+		  if (profile.portion_distribution && Object.keys(profile.portion_distribution).length > 0) {
+			setPortionDistribution(profile.portion_distribution);
+		  } else {
+			initializePortionDistribution();
+		  }
+		  
+		  if (profile.personal_foods) {
+			setPersonalFoods(profile.personal_foods);
+		  }
+		} else {
+		  // Si no hay perfil, inicializar con valores por defecto
+		  initializePortionDistribution();
+		}
 
-      // Cargar alimentos consumidos del dia actual
-      const today = new Date().toISOString().split('T')[0];
-      const consumedResponse = await fetch(`${API_BASE}/user/consumed-foods/${today}`, {
-        headers: getAuthHeaders()
-      });
+		// Cargar alimentos consumidos del dia actual
+		const today = new Date().toISOString().split('T')[0];
+		const consumedResponse = await fetch(`${API_BASE}/user/consumed-foods/${today}`, {
+		  headers: getAuthHeaders()
+		});
 
-      if (consumedResponse.ok) {
-        const consumedData = await consumedResponse.json();
-        setConsumedFoods(consumedData.consumed_foods || {});
-      }
-
-      // Inicializar datos si estan vacios
-      initializeUserData();
-    } catch (error) {
-      console.error('Error cargando datos del usuario:', error);
-    }
-  };
+		if (consumedResponse.ok) {
+		  const consumedData = await consumedResponse.json();
+		  if (consumedData.consumed_foods && Object.keys(consumedData.consumed_foods).length > 0) {
+			setConsumedFoods(consumedData.consumed_foods);
+		  } else {
+			initializeConsumedFoods();
+		  }
+		} else {
+		  initializeConsumedFoods();
+		}
+	  } catch (error) {
+		console.error('Error cargando datos del usuario:', error);
+		initializePortionDistribution();
+		initializeConsumedFoods();
+	  }
+	};
 
   // Inicializar datos de usuario
-  const initializeUserData = () => {
-    if (Object.keys(portionDistribution).length === 0) {
-      initializePortionDistribution();
-    }
-    if (Object.keys(consumedFoods).length === 0) {
-      initializeConsumedFoods();
-    }
-  };
+	const initializeUserData = () => {
+	  // Solo inicializar si estan vacios Y no hay datos guardados
+	  if (Object.keys(portionDistribution).length === 0) {
+		const profile = getUserProfile(user?.id);
+		if (!profile || Object.keys(profile.portion_distribution || {}).length === 0) {
+		  initializePortionDistribution();
+		}
+	  }
+	  if (Object.keys(consumedFoods).length === 0) {
+		initializeConsumedFoods();
+	  }
+	};
 
   // Guardar perfil de usuario
   const saveUserProfile = async (profileData) => {
@@ -178,23 +202,39 @@ const PortionTracker = () => {
   };
 
   // Auto-guardar cuando cambian los datos
-  useEffect(() => {
-    if (isAuthenticated && user) {
-      const profileData = {
-        meal_names: mealNames,
-        meal_count: mealCount,
-        portion_distribution: portionDistribution,
-        personal_foods: personalFoods
-      };
-      saveUserProfile(profileData);
-    }
-  }, [mealNames, mealCount, portionDistribution, personalFoods, isAuthenticated]);
+		useEffect(() => {
+		  if (isAuthenticated && user) {
+			// Debounce para evitar multiples guardados
+			const timeoutId = setTimeout(() => {
+			  const profileData = {
+				meal_names: mealNames,
+				meal_count: mealCount,
+				portion_distribution: portionDistribution,
+				personal_foods: personalFoods
+			  };
+			  saveUserProfile(profileData);
+			}, 1000); // Esperar 1 segundo antes de guardar
 
-  useEffect(() => {
-    if (isAuthenticated && user && Object.keys(consumedFoods).length > 0) {
-      saveConsumedFoods(consumedFoods);
-    }
-  }, [consumedFoods, isAuthenticated]);
+			return () => clearTimeout(timeoutId);
+		  }
+		}, [mealNames, mealCount, portionDistribution, personalFoods, isAuthenticated]);
+
+		useEffect(() => {
+		  if (isAuthenticated && user && Object.keys(consumedFoods).length > 0) {
+			// Verificar que realmente hay alimentos consumidos
+			const hasConsumedFoods = Object.values(consumedFoods).some(meal => 
+			  Object.values(meal).some(group => group.length > 0)
+			);
+			
+			if (hasConsumedFoods) {
+			  const timeoutId = setTimeout(() => {
+				saveConsumedFoods(consumedFoods);
+			  }, 1000);
+			  
+			  return () => clearTimeout(timeoutId);
+			}
+		  }
+		}, [consumedFoods, isAuthenticated]);
 
   // Funciones de autenticacion
   const handleLogin = async (e) => {
