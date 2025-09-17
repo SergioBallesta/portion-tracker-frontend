@@ -58,13 +58,43 @@ const PortionTracker = () => {
 
   // Grupos de alimentos
   const foodGroups = {
-    carbohidratos: { name: 'Carbohidratos', color: 'bg-blue-100 border-blue-300 text-blue-800', icon: 'C', defaultGrams: 30 },
-    proteinas: { name: 'Proteinas', color: 'bg-indigo-100 border-indigo-300 text-indigo-800', icon: 'P', defaultGrams: 100 },  
-    protegrasa: { name: 'Protegrasa', color: 'bg-purple-100 border-purple-300 text-purple-800', icon: 'PG', defaultGrams: 30 },
-    grasas: { name: 'Grasas', color: 'bg-cyan-100 border-cyan-300 text-cyan-800', icon: 'G', defaultGrams: 10 },
-    frutas: { name: 'Frutas', color: 'bg-sky-100 border-sky-300 text-sky-800', icon: 'F', defaultGrams: 150 },
-    lacteos: { name: 'Lacteos', color: 'bg-teal-100 border-teal-300 text-teal-800', icon: 'L', defaultGrams: 250 }
-  };
+        carbohidratos: { 
+          name: 'Carbohidratos', 
+          icon: 'C', 
+          defaultGrams: 30,
+          color: '#3b82f6' // azul
+        },
+        proteinas: { 
+          name: 'Proteínas', 
+          icon: 'P', 
+          defaultGrams: 100,
+          color: '#8b5cf6' // morado
+        },  
+        protegrasa: { 
+          name: 'Protegrasa', 
+          icon: 'PG', 
+          defaultGrams: 30,
+          color: '#ec4899' // rosa
+        },
+        grasas: { 
+          name: 'Grasas', 
+          icon: 'G', 
+          defaultGrams: 10,
+          color: '#10b981' // verde
+        },
+        frutas: { 
+          name: 'Frutas', 
+          icon: 'F', 
+          defaultGrams: 150,
+          color: '#f59e0b' // naranja
+        },
+        lacteos: { 
+          name: 'Lácteos', 
+          icon: 'L', 
+          defaultGrams: 250,
+          color: '#06b6d4' // cyan
+        }
+      };
 
   // Verificar autenticacion al cargar
   useEffect(() => {
@@ -1187,7 +1217,8 @@ const PortionTracker = () => {
                             width: '24px',
                             height: '24px',
                             borderRadius: '50%',
-                            background: '#e5e7eb',
+                            bbackground: foodGroups[group].color + '20', // 20 es opacidad
+                            color: foodGroups[group].color,
                             fontSize: '12px',
                             fontWeight: 'bold',
                             color: '#374151'
@@ -1508,7 +1539,135 @@ const PortionTracker = () => {
           </div>
         </div>
       )}
-
+      {/* Modal de edición de alimento personal */}
+        {showEditFood && editingFood && (
+          <div style={{
+            position: 'fixed',
+            top: 0,
+            left: 0,
+            right: 0,
+            bottom: 0,
+            background: 'rgba(0, 0, 0, 0.5)',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            zIndex: 1000,
+            padding: '20px'
+          }}>
+            <div style={{
+              background: 'white',
+              padding: '24px',
+              borderRadius: '12px',
+              width: '100%',
+              maxWidth: '400px',
+              boxShadow: '0 10px 25px rgba(0,0,0,0.1)'
+            }}>
+              <h3 style={{ fontSize: '18px', fontWeight: '600', marginBottom: '16px', color: '#1f2937' }}>
+                Editar Alimento
+              </h3>
+              <p style={{ fontSize: '14px', marginBottom: '16px', color: '#6b7280' }}>
+                <strong>{editingFood.name}</strong>
+              </p>
+              
+              <div style={{ marginBottom: '16px' }}>
+                <label style={{ display: 'block', marginBottom: '8px', fontSize: '14px', fontWeight: '500', color: '#374151' }}>
+                  Gramos por porción:
+                </label>
+                <input
+                  type="number"
+                  value={newStandardGrams}
+                  onChange={(e) => setNewStandardGrams(Math.max(1, parseInt(e.target.value) || 1))}
+                  style={{ 
+                    width: '100%', 
+                    padding: '12px', 
+                    border: '1px solid #d1d5db', 
+                    borderRadius: '8px',
+                    fontSize: '14px',
+                    boxSizing: 'border-box'
+                  }}
+                  min="1"
+                />
+              </div>
+              
+              <div style={{ marginBottom: '16px' }}>
+                <label style={{ display: 'block', marginBottom: '8px', fontSize: '14px', fontWeight: '500', color: '#374151' }}>
+                  Categoría:
+                </label>
+                <select
+                  value={editingFood.group}
+                  onChange={(e) => {
+                    const newFood = { ...editingFood, group: e.target.value };
+                    setEditingFood(newFood);
+                  }}
+                  style={{ 
+                    width: '100%', 
+                    padding: '12px', 
+                    border: '1px solid #d1d5db', 
+                    borderRadius: '8px',
+                    fontSize: '14px',
+                    boxSizing: 'border-box'
+                  }}
+                >
+                  {Object.keys(foodGroups).map(group => (
+                    <option key={group} value={group}>
+                      {foodGroups[group].icon} - {foodGroups[group].name}
+                    </option>
+                  ))}
+                </select>
+              </div>
+              
+              <div style={{ display: 'flex', gap: '12px' }}>
+                <button 
+                  onClick={() => {
+                    const newPersonalFoods = {
+                      ...personalFoods,
+                      [editingFood.id]: {
+                        ...editingFood,
+                        standardPortionGrams: newStandardGrams,
+                        gramsPerPortion: newStandardGrams
+                      }
+                    };
+                    setPersonalFoods(newPersonalFoods);
+                    setShowEditFood(false);
+                    setEditingFood(null);
+                  }}
+                  style={{ 
+                    flex: 1, 
+                    background: '#2563eb', 
+                    color: 'white', 
+                    border: 'none', 
+                    padding: '12px', 
+                    borderRadius: '8px',
+                    fontSize: '14px',
+                    fontWeight: '600',
+                    cursor: 'pointer'
+                  }}
+                >
+                  Guardar
+                </button>
+                <button 
+                  onClick={() => {
+                    setShowEditFood(false);
+                    setEditingFood(null);
+                  }}
+                  style={{ 
+                    flex: 1, 
+                    background: '#6b7280', 
+                    color: 'white', 
+                    border: 'none', 
+                    padding: '12px', 
+                    borderRadius: '8px',
+                    fontSize: '14px',
+                    fontWeight: '600',
+                    cursor: 'pointer'
+                  }}
+                >
+                  Cancelar
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
       {/* Modal de estadisticas */}
       {showStats && (
         <div style={{
@@ -1818,7 +1977,7 @@ const PortionTracker = () => {
             })}
           </div>
         </div>
-
+                
         {/* Seccion de comida actual */}
         <div style={{
           background: 'white',
@@ -1865,7 +2024,7 @@ const PortionTracker = () => {
                     <span style={{ fontSize: '11px', fontWeight: '500' }}>{foodGroups[group].name}</span>
                   </div>
                   <div style={{ fontSize: '16px', fontWeight: '600', color: '#1f2937' }}>
-                    {remaining > 0 ? `${remaining}/${planned}` : '?'}
+                    {planned > 0 ? `${remaining}/${planned}` : '0/0'}
                   </div>
                 </div>
               );
@@ -2171,6 +2330,43 @@ const PortionTracker = () => {
                           {foodGroups[food.group].icon} {food.standardPortionGrams}g = 1 porcion
                           {food.isFromAPI && <span style={{ color: '#22c55e', marginLeft: '8px' }}>FatSecret</span>}
                         </div>
+                      </div>
+                      <div style={{ display: 'flex', gap: '4px' }}>
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            // Establecer el alimento para editar
+                            setEditingFood(food);
+                            setNewStandardGrams(food.standardPortionGrams);
+                            setShowEditFood(true);
+                          }}
+                          style={{
+                            background: 'none',
+                            border: 'none',
+                            color: '#2563eb',
+                            cursor: 'pointer',
+                            padding: '4px'
+                          }}
+                        >
+                          <Edit3 size={14} />
+                        </button>
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            const newPersonalFoods = { ...personalFoods };
+                            delete newPersonalFoods[food.id];
+                            setPersonalFoods(newPersonalFoods);
+                          }}
+                          style={{
+                            background: 'none',
+                            border: 'none',
+                            color: '#ef4444',
+                            cursor: 'pointer',
+                            padding: '4px'
+                          }}
+                        >
+                          <Trash2 size={14} />
+                        </button>
                       </div>
                     </div>
                   ))}
