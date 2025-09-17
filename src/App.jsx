@@ -1218,7 +1218,7 @@ const PortionTracker = () => {
                             height: '24px',
                             borderRadius: '50%',
                             background: foodGroups[group].color + '20', // 20 es opacidad
-color: foodGroups[group].color,,
+							color: foodGroups[group].color,
                             fontSize: '12px',
                             fontWeight: 'bold',
                             color: '#374151'
@@ -1500,7 +1500,7 @@ color: foodGroups[group].color,,
                       height: '24px',
                       borderRadius: '50%',
                       background: foodGroups[group].color + '20', // 20 es opacidad
-color: foodGroups[group].color,,
+					  color: foodGroups[group].color,
                       fontSize: '12px',
                       fontWeight: 'bold',
                       color: '#374151'
@@ -1817,7 +1817,7 @@ color: foodGroups[group].color,,
 							height: '100%', 
 							borderRadius: '50%', 
 							background: foodGroups[group].color + '20', // 20 es opacidad
-color: foodGroups[group].color,,
+color: foodGroups[group].color,
 							display: 'flex',
 							alignItems: 'center',
 							justifyContent: 'center',
@@ -1935,7 +1935,7 @@ color: foodGroups[group].color,,
                       height: '20px',
                       borderRadius: '50%',
                       background: foodGroups[group].color + '20', // 20 es opacidad
-color: foodGroups[group].color,,
+color: foodGroups[group].color,
                       fontSize: '10px',
                       fontWeight: 'bold',
                       color: '#374151',
@@ -1954,7 +1954,7 @@ color: foodGroups[group].color,,
                     width: '100%',
                     height: '4px',
                     background: foodGroups[group].color + '20', // 20 es opacidad
-color: foodGroups[group].color,,
+color: foodGroups[group].color,
                     borderRadius: '2px',
                     overflow: 'hidden'
                   }}>
