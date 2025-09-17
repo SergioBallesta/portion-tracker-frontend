@@ -2200,7 +2200,7 @@ const PortionTracker = () => {
                     <div style={{ flex: 1 }}>
                       <div style={{ fontSize: '14px', fontWeight: '500', color: '#1f2937', marginBottom: '2px' }}>
                         {food.name}
-                        {food.isFromAPI && <span style={{ color: '#22c55e', fontSize: '12px', marginLeft: '4px' }}>??</span>}
+                        {food.isFromAPI && <span style={{ color: '#22c55e', fontSize: '12px', marginLeft: '4px' }}> </span>}
                       </div>
                       <div style={{ fontSize: '12px', color: '#6b7280' }}>
                         {food.actualGrams || food.gramsPerPortion}g 
