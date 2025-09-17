@@ -9,7 +9,10 @@ const PortionTracker = () => {
   const [authLoading, setAuthLoading] = useState(false);
   const [authError, setAuthError] = useState('');
   const [showPassword, setShowPassword] = useState(false);
-  
+  const [showVerification, setShowVerification] = useState(false);
+  const [verificationCode, setVerificationCode] = useState('');
+  const [pendingEmail, setPendingEmail] = useState('');
+    
   // Formularios de autenticacion
   const [loginData, setLoginData] = useState({ email: '', password: '' });
   const [registerData, setRegisterData] = useState({ email: '', password: '', confirmPassword: '' });
@@ -46,9 +49,26 @@ const PortionTracker = () => {
   // URL del backend
 		const API_BASE = "https://portion-tracker-backend-production.up.railway.app/api";
   // Token de autenticacion
-  const getAuthToken = () => localStorage.getItem('auth_token');
-  const setAuthToken = (token) => localStorage.setItem('auth_token', token);
-  const removeAuthToken = () => localStorage.removeItem('auth_token');
+		const getAuthToken = () => {
+		  const token = localStorage.getItem(`auth_token_${window.location.hostname}`);
+		  // Validar que el token no este corrupto
+		  if (token && token !== 'undefined' && token !== 'null') {
+			return token;
+		  }
+		  return null;
+		};
+
+		const setAuthToken = (token) => {
+		  if (token && token !== 'undefined' && token !== 'null') {
+			localStorage.setItem(`auth_token_${window.location.hostname}`, token);
+		  }
+		};
+
+		const removeAuthToken = () => {
+		  localStorage.removeItem(`auth_token_${window.location.hostname}`);
+		  // Limpiar tambien cualquier token antiguo
+		  localStorage.removeItem('auth_token');
+		};
 
   // Headers con autenticacion
   const getAuthHeaders = () => ({
@@ -298,7 +318,7 @@ const PortionTracker = () => {
   };
 
   const handleRegister = async (e) => {
-    e.preventDefault();
+     e.preventDefault();
     setAuthLoading(true);
     setAuthError('');
 
@@ -314,32 +334,32 @@ const PortionTracker = () => {
       return;
     }
 
-    try {
-      const response = await fetch(`${API_BASE}/auth/register`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          email: registerData.email,
-          password: registerData.password
-        })
-      });
+     try {
+        const response = await fetch(`${API_BASE}/auth/register`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            email: registerData.email,
+            password: registerData.password
+          })
+        });
 
-      const data = await response.json();
+        const data = await response.json();
 
-      if (response.ok) {
-        setAuthToken(data.token);
-        setUser(data.user);
-        setIsAuthenticated(true);
-        setRegisterData({ email: '', password: '', confirmPassword: '' });
-        await loadUserData();
-      } else {
-        setAuthError(data.error || 'Error en el registro');
+        if (response.ok) {
+          if (data.requiresVerification) {
+            setPendingEmail(registerData.email);
+            setShowVerification(true);
+            setRegisterData({ email: '', password: '', confirmPassword: '' });
+          }
+        } else {
+          setAuthError(data.error);
+        }
+      } catch (error) {
+        setAuthError('Error de conexión con el servidor');
+      } finally {
+        setAuthLoading(false);
       }
-    } catch (error) {
-      setAuthError('Error de conexion con el servidor');
-    } finally {
-      setAuthLoading(false);
-    }
   };
 
   const handleLogout = () => {
