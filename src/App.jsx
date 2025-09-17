@@ -2406,19 +2406,19 @@ const PortionTracker = () => {
           </h3>
           <div style={{ fontSize: '14px', color: '#6b7280', lineHeight: '1.5' }}>
             <div style={{ marginBottom: '8px' }}>
-              ? <strong>Busca alimentos</strong> {backendStatus === 'connected' ? 'en la base de datos de FatSecret' : 'con datos nutricionales'}
+               <strong>Busca alimentos</strong> {backendStatus === 'connected' ? 'en la base de datos de FatSecret' : 'con datos nutricionales'}
             </div>
             <div style={{ marginBottom: '8px' }}>
-              ? <strong>Categoriza y define gramos</strong> por porcion la primera vez
+               <strong>Categoriza y define gramos</strong> por porcion la primera vez
             </div>
             <div style={{ marginBottom: '8px' }}>
-              ? <strong>Anade automaticamente</strong> en siguientes busquedas
+               <strong>Anade automaticamente</strong> en siguientes busquedas
             </div>
             <div style={{ marginBottom: '8px' }}>
-              ? <strong>Seguimiento completo</strong> de calorias y macros
+               <strong>Seguimiento completo</strong> de calorias y macros
             </div>
             <div>
-              ? <strong>Datos sincronizados</strong> - guardados en tu cuenta personal
+               <strong>Datos sincronizados</strong> - guardados en tu cuenta personal
             </div>
           </div>
           
