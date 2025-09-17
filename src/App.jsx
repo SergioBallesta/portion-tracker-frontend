@@ -2113,18 +2113,18 @@ const PortionTracker = () => {
                         {food.name}
                       </div>
                       <div style={{ fontSize: '12px', color: '#6b7280' }}>
-                        {food.brand && <span>{food.brand} !E </span>}
+                        {food.brand && <span>{food.brand} </span>}
                         {food.isFromAPI ? (
-                          <span style={{ color: '#22c55e' }}>FatSecret !E </span>
+                          <span style={{ color: '#22c55e' }}>FatSecret </span>
                         ) : (
-                          <span>Datos locales !E </span>
+                          <span>Datos locales  </span>
                         )}
                         {food.calories ? `${food.calories} kcal/100g` : 'Tap para info nutricional'}
-                        {food.protein && <span> !E {food.protein}g prot</span>}
+                        {food.protein && <span> {food.protein}g prot</span>}
                       </div>
                       {isPersonalFood && (
                         <div style={{ fontSize: '11px', color: '#059669', marginTop: '2px' }}>
-                          ? Guardado como {foodGroups[isPersonalFood.group].icon} ({isPersonalFood.gramsPerPortion}g)
+                         Guardado como {foodGroups[isPersonalFood.group].icon} ({isPersonalFood.gramsPerPortion}g)
                         </div>
                       )}
                     </div>
@@ -2205,9 +2205,9 @@ const PortionTracker = () => {
                       <div style={{ fontSize: '12px', color: '#6b7280' }}>
                         {food.actualGrams || food.gramsPerPortion}g 
                         ({Math.round((food.actualGrams || food.gramsPerPortion) / (food.standardPortionGrams || food.gramsPerPortion) * 10) / 10} porciones) 
-                        !E {Math.round(food.calories * (food.actualGrams || food.gramsPerPortion) / 100)} kcal
-                        {food.protein && <span> !E {Math.round(food.protein * (food.actualGrams || food.gramsPerPortion) / 100 * 10) / 10}g prot</span>}
-                        <span style={{ color: '#9ca3af' }}> !E {food.timestamp}</span>
+                       {Math.round(food.calories * (food.actualGrams || food.gramsPerPortion) / 100)} kcal
+                        {food.protein && <span>  {Math.round(food.protein * (food.actualGrams || food.gramsPerPortion) / 100 * 10) / 10}g prot</span>}
+                        <span style={{ color: '#9ca3af' }}>  {food.timestamp}</span>
                       </div>
                     </div>
                     <div style={{ display: 'flex', gap: '4px' }}>
