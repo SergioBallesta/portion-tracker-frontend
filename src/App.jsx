@@ -191,18 +191,15 @@ const PortionTracker = () => {
 	};
 
   // Inicializar datos de usuario
-	const initializeUserData = () => {
-	  // Solo inicializar si estan vacios Y no hay datos guardados
-	  if (Object.keys(portionDistribution).length === 0) {
-		const profile = getUserProfile(user?.id);
-		if (!profile || Object.keys(profile.portion_distribution || {}).length === 0) {
-		  initializePortionDistribution();
-		}
-	  }
-	  if (Object.keys(consumedFoods).length === 0) {
-		initializeConsumedFoods();
-	  }
-	};
+  const initializeUserData = () => {
+    // Solo inicializar si estan vacios
+    if (Object.keys(portionDistribution).length === 0) {
+    initializePortionDistribution();
+    }
+    if (Object.keys(consumedFoods).length === 0) {
+    initializeConsumedFoods();
+    }
+  };
 
   // Guardar perfil de usuario
   const saveUserProfile = async (profileData) => {
@@ -422,6 +419,19 @@ const PortionTracker = () => {
     setSearchTerm('');
     setSearchResults([]);
   };
+
+const handleLogout = () => {
+  removeAuthToken();
+  setUser(null);
+  setIsAuthenticated(false);
+  // Limpiar estados
+  setPersonalFoods({});
+  setConsumedFoods({});
+  setPortionDistribution({});
+  setMealNames(['Desayuno', 'Almuerzo', 'Cena']);
+  setMealCount(3);
+  setCurrentMeal(0);
+};
 
   const assignFoodCategory = (category) => {
     if (selectedFood) {
@@ -931,136 +941,7 @@ const PortionTracker = () => {
                 </div>
               ))}
             </div>
-			{/* Modal de Verificacion */}
-			{showVerification && (
-			  <div style={{
-				position: 'fixed',
-				top: 0,
-				left: 0,
-				right: 0,
-				bottom: 0,
-				background: 'rgba(0, 0, 0, 0.5)',
-				display: 'flex',
-				alignItems: 'center',
-				justifyContent: 'center',
-				zIndex: 1000
-			  }}>
-				<div style={{
-				  background: 'white',
-				  padding: '40px',
-				  borderRadius: '12px',
-				  boxShadow: '0 10px 25px rgba(0,0,0,0.1)',
-				  width: '100%',
-				  maxWidth: '400px'
-				}}>
-				  <h2 style={{ 
-					fontSize: '24px', 
-					fontWeight: 'bold', 
-					color: '#1f2937',
-					marginBottom: '16px',
-					textAlign: 'center'
-				  }}>
-					Verificacion de Email
-				  </h2>
-				  
-				  <p style={{ 
-					color: '#6b7280', 
-					marginBottom: '24px',
-					textAlign: 'center'
-				  }}>
-					Hemos enviado un codigo de 6 digitos a<br/>
-					<strong>{pendingEmail}</strong>
-				  </p>
-
-				  <div style={{ marginBottom: '20px' }}>
-					<label style={{ 
-					  display: 'block', 
-					  color: '#374151', 
-					  fontSize: '14px', 
-					  fontWeight: '500', 
-					  marginBottom: '8px' 
-					}}>
-					  Codigo de Verificacion
-					</label>
-					<input
-					  type="text"
-					  value={verificationCode}
-					  onChange={(e) => setVerificationCode(e.target.value.replace(/\D/g, '').slice(0, 6))}
-					  style={{
-						width: '100%',
-						padding: '16px',
-						border: '2px solid #d1d5db',
-						borderRadius: '8px',
-						fontSize: '24px',
-						textAlign: 'center',
-						letterSpacing: '8px',
-						fontWeight: 'bold',
-						outline: 'none',
-						boxSizing: 'border-box'
-					  }}
-					  placeholder="000000"
-					  maxLength="6"
-					/>
-				  </div>
-
-				  {authError && (
-					<div style={{
-					  background: '#fef2f2',
-					  border: '1px solid #fecaca',
-					  color: '#dc2626',
-					  padding: '12px',
-					  borderRadius: '8px',
-					  marginBottom: '20px',
-					  fontSize: '14px',
-					  textAlign: 'center'
-					}}>
-					  {authError}
-					</div>
-				  )}
-
-				  <button
-					onClick={handleVerification}
-					disabled={authLoading || verificationCode.length !== 6}
-					style={{
-					  width: '100%',
-					  background: authLoading || verificationCode.length !== 6 ? '#9ca3af' : '#059669',
-					  color: 'white',
-					  border: 'none',
-					  padding: '14px',
-					  borderRadius: '8px',
-					  fontSize: '16px',
-					  fontWeight: '600',
-					  cursor: authLoading || verificationCode.length !== 6 ? 'not-allowed' : 'pointer',
-					  marginBottom: '12px'
-					}}
-				  >
-					{authLoading ? 'Verificando...' : 'Verificar Codigo'}
-				  </button>
-
-				  <button
-					onClick={() => {
-					  setShowVerification(false);
-					  setVerificationCode('');
-					  setPendingEmail('');
-					  setAuthError('');
-					}}
-					style={{
-					  width: '100%',
-					  background: 'transparent',
-					  color: '#6b7280',
-					  border: '1px solid #d1d5db',
-					  padding: '12px',
-					  borderRadius: '8px',
-					  fontSize: '14px',
-					  fontWeight: '500',
-					  cursor: 'pointer'
-					}}
-				  >
-					Cancelar
-				  </button>
-				</div>
-			  </div>
-			)}
+            </div>
 
             {/* Tabla de porciones */}
             <div style={{ marginBottom: '32px' }}>
@@ -1173,7 +1054,6 @@ const PortionTracker = () => {
             </button>
           </div>
         </div>
-      </div>
     );
   }
 
