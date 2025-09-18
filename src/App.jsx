@@ -1,21 +1,12 @@
 import React, { useState, useEffect } from 'react';
 import { Plus, Search, Trash2, Settings, Utensils, AlertCircle, Clock, Target, Edit3, Save, X, Scale, Activity, BarChart3, Download, Upload, LogOut, User, Eye, EyeOff } from 'lucide-react';
-
+import { GoogleLogin } from '@react-oauth/google';
 const PortionTracker = () => {
   // Estados de autenticacion
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [user, setUser] = useState(null);
-  const [showLogin, setShowLogin] = useState(true);
   const [authLoading, setAuthLoading] = useState(false);
   const [authError, setAuthError] = useState('');
-  const [showPassword, setShowPassword] = useState(false);
-  const [showVerification, setShowVerification] = useState(false);
-  const [verificationCode, setVerificationCode] = useState('');
-  const [pendingEmail, setPendingEmail] = useState('');
-    
-  // Formularios de autenticacion
-  const [loginData, setLoginData] = useState({ email: '', password: '' });
-  const [registerData, setRegisterData] = useState({ email: '', password: '', confirmPassword: '' });
 
   // Estados existentes de la aplicacion
   const [showEditConsumption, setShowEditConsumption] = useState(false);
@@ -285,130 +276,6 @@ const PortionTracker = () => {
 			}
 		  }
 		}, [consumedFoods, isAuthenticated]);
-
-  // Funciones de autenticacion
-  const handleLogin = async (e) => {
-    e.preventDefault();
-    setAuthLoading(true);
-    setAuthError('');
-
-    try {
-      const response = await fetch(`${API_BASE}/auth/login`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(loginData)
-      });
-
-      const data = await response.json();
-
-      if (response.ok) {
-        setAuthToken(data.token);
-        setUser(data.user);
-        setIsAuthenticated(true);
-        setLoginData({ email: '', password: '' });
-        await loadUserData();
-      } else {
-        setAuthError(data.error || 'Error en el login');
-      }
-    } catch (error) {
-      setAuthError('Error de conexion con el servidor');
-    } finally {
-      setAuthLoading(false);
-    }
-  };
-
-  const handleRegister = async (e) => {
-     e.preventDefault();
-    setAuthLoading(true);
-    setAuthError('');
-
-    if (registerData.password !== registerData.confirmPassword) {
-      setAuthError('Las contrasenas no coinciden');
-      setAuthLoading(false);
-      return;
-    }
-
-    if (registerData.password.length < 6) {
-      setAuthError('La contrasena debe tener al menos 6 caracteres');
-      setAuthLoading(false);
-      return;
-    }
-
-     try {
-        const response = await fetch(`${API_BASE}/auth/register`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            email: registerData.email,
-            password: registerData.password
-          })
-        });
-
-        const data = await response.json();
-
-        if (response.ok) {
-          if (data.requiresVerification) {
-            setPendingEmail(registerData.email);
-            setShowVerification(true);
-            setRegisterData({ email: '', password: '', confirmPassword: '' });
-          }
-        } else {
-          setAuthError(data.error);
-        }
-      } catch (error) {
-        setAuthError('Error de conexión con el servidor');
-      } finally {
-        setAuthLoading(false);
-      }
-  };
-  
-  const handleVerification = async () => {
-  setAuthLoading(true);
-  setAuthError('');
-
-  try {
-    const response = await fetch(`${API_BASE}/auth/verify`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        email: pendingEmail,
-        code: verificationCode
-      })
-    });
-
-    const data = await response.json();
-
-    if (response.ok) {
-      setAuthToken(data.token);
-      setUser(data.user);
-      setIsAuthenticated(true);
-      setShowVerification(false);
-      setVerificationCode('');
-      setPendingEmail('');
-      await loadUserData();
-    } else {
-      setAuthError(data.error);
-    }
-  } catch (error) {
-    setAuthError('Error de conexion');
-  } finally {
-    setAuthLoading(false);
-  }
-};
-
-  const handleLogout = () => {
-    removeAuthToken();
-    setUser(null);
-    setIsAuthenticated(false);
-    setShowLogin(true);
-    // Limpiar estados
-    setPersonalFoods({});
-    setConsumedFoods({});
-    setPortionDistribution({});
-    setMealNames(['Desayuno', 'Almuerzo', 'Cena']);
-    setMealCount(3);
-    setCurrentMeal(0);
-  };
 
   // Verificar si es un nuevo dia y limpiar consumidos
   useEffect(() => {
@@ -726,325 +593,168 @@ const PortionTracker = () => {
 
   // Pantalla de autenticacion
   if (!isAuthenticated) {
-    return (
-      <div style={{ 
-        minHeight: '100vh', 
-        background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
-        display: 'flex',
-        alignItems: 'center',
-        justifyContent: 'center',
-        padding: '20px'
+  return (
+    <div style={{ 
+      minHeight: '100vh', 
+      background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
+      display: 'flex',
+      alignItems: 'center',
+      justifyContent: 'center',
+      padding: '20px'
+    }}>
+      <div style={{
+        background: 'white',
+        padding: '60px 40px',
+        borderRadius: '20px',
+        boxShadow: '0 20px 40px rgba(0,0,0,0.15)',
+        width: '100%',
+        maxWidth: '420px',
+        textAlign: 'center'
       }}>
+        {/* Logo o imagen */}
         <div style={{
-          background: 'white',
-          padding: '40px',
-          borderRadius: '12px',
-          boxShadow: '0 10px 25px rgba(0,0,0,0.1)',
-          width: '100%',
-          maxWidth: '400px'
+          width: '80px',
+          height: '80px',
+          background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
+          borderRadius: '20px',
+          margin: '0 auto 30px',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          fontSize: '36px',
+          color: 'white'
         }}>
-          <div style={{ textAlign: 'center', marginBottom: '30px' }}>
-            <h1 style={{ color: '#1f2937', fontSize: '28px', fontWeight: 'bold', marginBottom: '8px' }}>
-              Control de Porciones
-            </h1>
-            <p style={{ color: '#6b7280', fontSize: '14px' }}>
-              Gestiona tu alimentacion de forma inteligente
-            </p>
+          ???
+        </div>
+
+        <h1 style={{ 
+          color: '#1f2937', 
+          fontSize: '32px', 
+          fontWeight: 'bold', 
+          marginBottom: '12px' 
+        }}>
+          Control de Porciones
+        </h1>
+        
+        <p style={{ 
+          color: '#6b7280', 
+          fontSize: '16px',
+          marginBottom: '40px',
+          lineHeight: '1.5'
+        }}>
+          Gestiona tu alimentacion de forma inteligente
+        </p>
+
+        {authError && (
+          <div style={{
+            background: '#fef2f2',
+            border: '1px solid #fecaca',
+            color: '#dc2626',
+            padding: '12px',
+            borderRadius: '8px',
+            marginBottom: '20px',
+            fontSize: '14px'
+          }}>
+            {authError}
+          </div>
+        )}
+
+        <div style={{ 
+          display: 'flex', 
+          flexDirection: 'column',
+          alignItems: 'center',
+          gap: '20px'
+        }}>
+          <div style={{ transform: 'scale(1.1)' }}>
+            <GoogleLogin
+              onSuccess={async (credentialResponse) => {
+                setAuthLoading(true);
+                setAuthError('');
+                
+                try {
+                  const response = await fetch(`${API_BASE}/auth/google`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                      token: credentialResponse.credential
+                    })
+                  });
+                  
+                  const data = await response.json();
+                  
+                  if (response.ok) {
+                    setAuthToken(data.token);
+                    setUser(data.user);
+                    setIsAuthenticated(true);
+                    await loadUserData();
+                  } else {
+                    setAuthError(data.error || 'Error al iniciar sesion');
+                  }
+                } catch (error) {
+                  setAuthError('Error de conexion con el servidor');
+                } finally {
+                  setAuthLoading(false);
+                }
+              }}
+              onError={() => {
+                setAuthError('Error al iniciar sesion con Google');
+              }}
+              theme="outline"
+              size="large"
+              shape="pill"
+              logo_alignment="left"
+              width="280"
+            />
           </div>
 
-          {authError && (
-            <div style={{
-              background: '#fef2f2',
-              border: '1px solid #fecaca',
-              color: '#dc2626',
-              padding: '12px',
-              borderRadius: '8px',
-              marginBottom: '20px',
-              fontSize: '14px',
-              textAlign: 'center'
-            }}>
-              {authError}
-            </div>
-          )}
-
-          <div style={{ marginBottom: '24px' }}>
+          {authLoading && (
             <div style={{ 
               display: 'flex', 
-              background: '#f3f4f6', 
-              borderRadius: '8px', 
-              padding: '4px' 
+              alignItems: 'center', 
+              gap: '8px',
+              color: '#6b7280' 
             }}>
-              <button
-                onClick={() => setShowLogin(true)}
-                style={{
-                  flex: 1,
-                  padding: '8px 16px',
-                  background: showLogin ? 'white' : 'transparent',
-                  color: showLogin ? '#1f2937' : '#6b7280',
-                  border: 'none',
-                  borderRadius: '6px',
-                  cursor: 'pointer',
-                  fontSize: '14px',
-                  fontWeight: '500',
-                  boxShadow: showLogin ? '0 1px 3px rgba(0,0,0,0.1)' : 'none'
-                }}
-              >
-                Iniciar Sesion
-              </button>
-              <button
-                onClick={() => setShowLogin(false)}
-                style={{
-                  flex: 1,
-                  padding: '8px 16px',
-                  background: !showLogin ? 'white' : 'transparent',
-                  color: !showLogin ? '#1f2937' : '#6b7280',
-                  border: 'none',
-                  borderRadius: '6px',
-                  cursor: 'pointer',
-                  fontSize: '14px',
-                  fontWeight: '500',
-                  boxShadow: !showLogin ? '0 1px 3px rgba(0,0,0,0.1)' : 'none'
-                }}
-              >
-                Registrarse
-              </button>
+              <div style={{
+                width: '16px',
+                height: '16px',
+                border: '2px solid #e5e7eb',
+                borderTop: '2px solid #667eea',
+                borderRadius: '50%',
+                animation: 'spin 1s linear infinite'
+              }} />
+              Iniciando sesion...
             </div>
-          </div>
+          )}
+        </div>
 
-          {showLogin ? (
-				  <form onSubmit={handleLogin}>
-					<div style={{ marginBottom: '20px' }}>
-					  <label style={{ 
-						display: 'block', 
-						color: '#374151', 
-						fontSize: '14px', 
-						fontWeight: '500', 
-						marginBottom: '6px' 
-					  }}>
-						Email
-					  </label>
-					  <input
-						type="email"
-						value={loginData.email}
-						onChange={(e) => setLoginData({...loginData, email: e.target.value})}
-						style={{
-						  width: '100%',
-						  padding: '12px',
-						  border: '1px solid #d1d5db',
-						  borderRadius: '8px',
-						  fontSize: '14px',
-						  outline: 'none',
-						  boxSizing: 'border-box'
-						}}
-						placeholder="tu@email.com"
-						required
-					  />
-					</div>
-					
-					<div style={{ marginBottom: '24px' }}>
-					  <label style={{ 
-						display: 'block', 
-						color: '#374151', 
-						fontSize: '14px', 
-						fontWeight: '500', 
-						marginBottom: '6px' 
-					  }}>
-						Contrasena
-					  </label>
-					  <div style={{ position: 'relative' }}>
-						<input
-						  type={showPassword ? 'text' : 'password'}
-						  value={loginData.password}
-						  onChange={(e) => setLoginData({...loginData, password: e.target.value})}
-						  style={{
-							width: '100%',
-							padding: '12px',
-							paddingRight: '40px',
-							border: '1px solid #d1d5db',
-							borderRadius: '8px',
-							fontSize: '14px',
-							outline: 'none',
-							boxSizing: 'border-box'
-						  }}
-						  placeholder="Tu contrasena"
-						  required
-						/>
-						<button
-						  type="button"
-						  onClick={() => setShowPassword(!showPassword)}
-						  style={{
-							position: 'absolute',
-							right: '12px',
-							top: '50%',
-							transform: 'translateY(-50%)',
-							background: 'none',
-							border: 'none',
-							color: '#6b7280',
-							cursor: 'pointer'
-						  }}
-						>
-						  {showPassword ? <EyeOff size={16} /> : <Eye size={16} />}
-						</button>
-					  </div>
-					</div>
-					
-					<button
-					  type="submit"
-					  disabled={authLoading}
-					  style={{
-						width: '100%',
-						background: authLoading ? '#9ca3af' : '#2563eb',
-						color: 'white',
-						border: 'none',
-						padding: '12px',
-						borderRadius: '8px',
-						fontSize: '16px',
-						fontWeight: '600',
-						cursor: authLoading ? 'not-allowed' : 'pointer'
-					  }}
-					>
-					  {authLoading ? 'Iniciando...' : 'Iniciar Sesion'}
-					</button>
-				  </form>
-				) : (
-				  <form onSubmit={handleRegister}>
-					<div style={{ marginBottom: '20px' }}>
-					  <label style={{ 
-						display: 'block', 
-						color: '#374151', 
-						fontSize: '14px', 
-						fontWeight: '500', 
-						marginBottom: '6px' 
-					  }}>
-						Email
-					  </label>
-					  <input
-						type="email"
-						value={registerData.email}
-						onChange={(e) => setRegisterData({...registerData, email: e.target.value})}
-						style={{
-						  width: '100%',
-						  padding: '12px',
-						  border: '1px solid #d1d5db',
-						  borderRadius: '8px',
-						  fontSize: '14px',
-						  outline: 'none',
-						  boxSizing: 'border-box'
-						}}
-						placeholder="tu@email.com"
-						required
-					  />
-					</div>
-					
-					<div style={{ marginBottom: '20px' }}>
-					  <label style={{ 
-						display: 'block', 
-						color: '#374151', 
-						fontSize: '14px', 
-						fontWeight: '500', 
-						marginBottom: '6px' 
-					  }}>
-						Contrasena
-					  </label>
-					  <div style={{ position: 'relative' }}>
-						<input
-						  type={showPassword ? 'text' : 'password'}
-						  value={registerData.password}
-						  onChange={(e) => setRegisterData({...registerData, password: e.target.value})}
-						  style={{
-							width: '100%',
-							padding: '12px',
-							paddingRight: '40px',
-							border: '1px solid #d1d5db',
-							borderRadius: '8px',
-							fontSize: '14px',
-							outline: 'none',
-							boxSizing: 'border-box'
-						  }}
-						  placeholder="Minimo 6 caracteres"
-						  required
-						/>
-						<button
-						  type="button"
-						  onClick={() => setShowPassword(!showPassword)}
-						  style={{
-							position: 'absolute',
-							right: '12px',
-							top: '50%',
-							transform: 'translateY(-50%)',
-							background: 'none',
-							border: 'none',
-							color: '#6b7280',
-							cursor: 'pointer'
-						  }}
-						>
-						  {showPassword ? <EyeOff size={16} /> : <Eye size={16} />}
-						</button>
-					  </div>
-					</div>
-					
-					<div style={{ marginBottom: '24px' }}>
-					  <label style={{ 
-						display: 'block', 
-						color: '#374151', 
-						fontSize: '14px', 
-						fontWeight: '500', 
-						marginBottom: '6px' 
-					  }}>
-						Confirmar Contrasena
-					  </label>
-					  <input
-						type="password"
-						value={registerData.confirmPassword}
-						onChange={(e) => setRegisterData({...registerData, confirmPassword: e.target.value})}
-						style={{
-						  width: '100%',
-						  padding: '12px',
-						  border: '1px solid #d1d5db',
-						  borderRadius: '8px',
-						  fontSize: '14px',
-						  outline: 'none',
-						  boxSizing: 'border-box'
-						}}
-						placeholder="Repite tu contrasena"
-						required
-					  />
-					</div>
-					
-					<button
-					  type="submit"
-					  disabled={authLoading}
-					  style={{
-						width: '100%',
-						background: authLoading ? '#9ca3af' : '#059669',
-						color: 'white',
-						border: 'none',
-						padding: '12px',
-						borderRadius: '8px',
-						fontSize: '16px',
-						fontWeight: '600',
-						cursor: authLoading ? 'not-allowed' : 'pointer'
-					  }}
-					>
-					  {authLoading ? 'Registrando...' : 'Crear Cuenta'}
-					</button>
-				  </form>
-)}
-          <div style={{ 
-            textAlign: 'center', 
-            marginTop: '20px', 
-            fontSize: '12px', 
-            color: '#6b7280' 
-          }}>
-            {backendStatus === 'connected' ? (
-              <>Conectado a la base de datos</>
-            ) : (
-              <>Verificando conexion...</>
-            )}
-          </div>
+        <div style={{ 
+          marginTop: '40px',
+          paddingTop: '20px',
+          borderTop: '1px solid #e5e7eb',
+          fontSize: '12px', 
+          color: '#6b7280' 
+        }}>
+          {backendStatus === 'connected' ? (
+            <span style={{ color: '#059669' }}>
+              ? Conectado a la base de datos
+            </span>
+          ) : (
+            <span>? Verificando conexion...</span>
+          )}
+        </div>
+
+        <div style={{ 
+          marginTop: '20px',
+          fontSize: '11px', 
+          color: '#9ca3af',
+          lineHeight: '1.4'
+        }}>
+          Al continuar, aceptas que tu informacion se almacene de forma segura 
+          para proporcionarte el servicio.
         </div>
       </div>
-    );
+    </div>
+  );
 }
 
   // Pantalla de configuracion
@@ -1221,137 +931,136 @@ const PortionTracker = () => {
                 </div>
               ))}
             </div>
-
 			{/* Modal de Verificacion */}
-{showVerification && (
-  <div style={{
-    position: 'fixed',
-    top: 0,
-    left: 0,
-    right: 0,
-    bottom: 0,
-    background: 'rgba(0, 0, 0, 0.5)',
-    display: 'flex',
-    alignItems: 'center',
-    justifyContent: 'center',
-    zIndex: 1000
-  }}>
-    <div style={{
-      background: 'white',
-      padding: '40px',
-      borderRadius: '12px',
-      boxShadow: '0 10px 25px rgba(0,0,0,0.1)',
-      width: '100%',
-      maxWidth: '400px'
-    }}>
-      <h2 style={{ 
-        fontSize: '24px', 
-        fontWeight: 'bold', 
-        color: '#1f2937',
-        marginBottom: '16px',
-        textAlign: 'center'
-      }}>
-        Verificacion de Email
-      </h2>
-      
-      <p style={{ 
-        color: '#6b7280', 
-        marginBottom: '24px',
-        textAlign: 'center'
-      }}>
-        Hemos enviado un codigo de 6 digitos a<br/>
-        <strong>{pendingEmail}</strong>
-      </p>
+			{showVerification && (
+			  <div style={{
+				position: 'fixed',
+				top: 0,
+				left: 0,
+				right: 0,
+				bottom: 0,
+				background: 'rgba(0, 0, 0, 0.5)',
+				display: 'flex',
+				alignItems: 'center',
+				justifyContent: 'center',
+				zIndex: 1000
+			  }}>
+				<div style={{
+				  background: 'white',
+				  padding: '40px',
+				  borderRadius: '12px',
+				  boxShadow: '0 10px 25px rgba(0,0,0,0.1)',
+				  width: '100%',
+				  maxWidth: '400px'
+				}}>
+				  <h2 style={{ 
+					fontSize: '24px', 
+					fontWeight: 'bold', 
+					color: '#1f2937',
+					marginBottom: '16px',
+					textAlign: 'center'
+				  }}>
+					Verificacion de Email
+				  </h2>
+				  
+				  <p style={{ 
+					color: '#6b7280', 
+					marginBottom: '24px',
+					textAlign: 'center'
+				  }}>
+					Hemos enviado un codigo de 6 digitos a<br/>
+					<strong>{pendingEmail}</strong>
+				  </p>
 
-      <div style={{ marginBottom: '20px' }}>
-        <label style={{ 
-          display: 'block', 
-          color: '#374151', 
-          fontSize: '14px', 
-          fontWeight: '500', 
-          marginBottom: '8px' 
-        }}>
-          Codigo de Verificacion
-        </label>
-        <input
-          type="text"
-          value={verificationCode}
-          onChange={(e) => setVerificationCode(e.target.value.replace(/\D/g, '').slice(0, 6))}
-          style={{
-            width: '100%',
-            padding: '16px',
-            border: '2px solid #d1d5db',
-            borderRadius: '8px',
-            fontSize: '24px',
-            textAlign: 'center',
-            letterSpacing: '8px',
-            fontWeight: 'bold',
-            outline: 'none',
-            boxSizing: 'border-box'
-          }}
-          placeholder="000000"
-          maxLength="6"
-        />
-      </div>
+				  <div style={{ marginBottom: '20px' }}>
+					<label style={{ 
+					  display: 'block', 
+					  color: '#374151', 
+					  fontSize: '14px', 
+					  fontWeight: '500', 
+					  marginBottom: '8px' 
+					}}>
+					  Codigo de Verificacion
+					</label>
+					<input
+					  type="text"
+					  value={verificationCode}
+					  onChange={(e) => setVerificationCode(e.target.value.replace(/\D/g, '').slice(0, 6))}
+					  style={{
+						width: '100%',
+						padding: '16px',
+						border: '2px solid #d1d5db',
+						borderRadius: '8px',
+						fontSize: '24px',
+						textAlign: 'center',
+						letterSpacing: '8px',
+						fontWeight: 'bold',
+						outline: 'none',
+						boxSizing: 'border-box'
+					  }}
+					  placeholder="000000"
+					  maxLength="6"
+					/>
+				  </div>
 
-      {authError && (
-        <div style={{
-          background: '#fef2f2',
-          border: '1px solid #fecaca',
-          color: '#dc2626',
-          padding: '12px',
-          borderRadius: '8px',
-          marginBottom: '20px',
-          fontSize: '14px',
-          textAlign: 'center'
-        }}>
-          {authError}
-        </div>
-      )}
+				  {authError && (
+					<div style={{
+					  background: '#fef2f2',
+					  border: '1px solid #fecaca',
+					  color: '#dc2626',
+					  padding: '12px',
+					  borderRadius: '8px',
+					  marginBottom: '20px',
+					  fontSize: '14px',
+					  textAlign: 'center'
+					}}>
+					  {authError}
+					</div>
+				  )}
 
-      <button
-        onClick={handleVerification}
-        disabled={authLoading || verificationCode.length !== 6}
-        style={{
-          width: '100%',
-          background: authLoading || verificationCode.length !== 6 ? '#9ca3af' : '#059669',
-          color: 'white',
-          border: 'none',
-          padding: '14px',
-          borderRadius: '8px',
-          fontSize: '16px',
-          fontWeight: '600',
-          cursor: authLoading || verificationCode.length !== 6 ? 'not-allowed' : 'pointer',
-          marginBottom: '12px'
-        }}
-      >
-        {authLoading ? 'Verificando...' : 'Verificar Codigo'}
-      </button>
+				  <button
+					onClick={handleVerification}
+					disabled={authLoading || verificationCode.length !== 6}
+					style={{
+					  width: '100%',
+					  background: authLoading || verificationCode.length !== 6 ? '#9ca3af' : '#059669',
+					  color: 'white',
+					  border: 'none',
+					  padding: '14px',
+					  borderRadius: '8px',
+					  fontSize: '16px',
+					  fontWeight: '600',
+					  cursor: authLoading || verificationCode.length !== 6 ? 'not-allowed' : 'pointer',
+					  marginBottom: '12px'
+					}}
+				  >
+					{authLoading ? 'Verificando...' : 'Verificar Codigo'}
+				  </button>
 
-      <button
-        onClick={() => {
-          setShowVerification(false);
-          setVerificationCode('');
-          setPendingEmail('');
-          setAuthError('');
-        }}
-        style={{
-          width: '100%',
-          background: 'transparent',
-          color: '#6b7280',
-          border: '1px solid #d1d5db',
-          padding: '12px',
-          borderRadius: '8px',
-          fontSize: '14px',
-          fontWeight: '500',
-          cursor: 'pointer'
-        }}
-      >
-        Cancelar
-      </button>
-    </div>
-  </div>
-)}
+				  <button
+					onClick={() => {
+					  setShowVerification(false);
+					  setVerificationCode('');
+					  setPendingEmail('');
+					  setAuthError('');
+					}}
+					style={{
+					  width: '100%',
+					  background: 'transparent',
+					  color: '#6b7280',
+					  border: '1px solid #d1d5db',
+					  padding: '12px',
+					  borderRadius: '8px',
+					  fontSize: '14px',
+					  fontWeight: '500',
+					  cursor: 'pointer'
+					}}
+				  >
+					Cancelar
+				  </button>
+				</div>
+			  </div>
+			)}
 
             {/* Tabla de porciones */}
             <div style={{ marginBottom: '32px' }}>
