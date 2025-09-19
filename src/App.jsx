@@ -114,37 +114,37 @@ const buttonStyle = (variant = 'primary') => {
 const foodGroups = {
   carbohidratos: { 
     name: 'Carbohidratos', 
-    icon: '??', 
+    icon: 'CH', 
     defaultGrams: 30,
     color: '#3b82f6'
   },
   proteinas: { 
     name: 'Proteinas', 
-    icon: '??', 
+    icon: 'P', 
     defaultGrams: 100,
     color: '#8b5cf6'
   },  
   protegrasa: { 
     name: 'Protegrasa', 
-    icon: '??', 
+    icon: 'PG', 
     defaultGrams: 30,
     color: '#ec4899'
   },
   grasas: { 
     name: 'Grasas', 
-    icon: '??', 
+    icon: 'G', 
     defaultGrams: 10,
     color: '#10b981'
   },
   frutas: { 
     name: 'Frutas', 
-    icon: '??', 
+    icon: 'F', 
     defaultGrams: 150,
     color: '#f59e0b'
   },
   lacteos: { 
     name: 'Lacteos', 
-    icon: '??', 
+    icon: 'L', 
     defaultGrams: 250,
     color: '#06b6d4'
   }
@@ -710,7 +710,7 @@ const getDailyMacros = () => {
           fontSize: '36px',
           color: 'white'
         }}>
-          ???
+          PT
         </div>
 
         <h1 style={{ 
@@ -1582,7 +1582,7 @@ const getDailyMacros = () => {
 				}}>
 				  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '24px' }}>
 					<h3 style={{ fontSize: '20px', fontWeight: '700', color: '#1f2937', margin: 0 }}>
-					  ?? Estadisticas Diarias
+					  Estadisticas Diarias
 					</h3>
 					<button 
 					  onClick={() => setShowStats(false)}
