@@ -1015,8 +1015,10 @@ const getDailyMacros = () => {
                     </>
                   )}
                 </div>
+                
               ))}
             </div>
+                </div>
 
             {/* Tabla de porciones */}
             <div style={{ marginBottom: '32px' }}>
@@ -1641,7 +1643,6 @@ const getDailyMacros = () => {
 				  </div>
 				</div>
 				</div>
-			  </div>
 			)}
 
       {/* Header */}
