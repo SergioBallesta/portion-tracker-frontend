@@ -1313,7 +1313,7 @@ const handleLogout = () => {
           </div>
         </div>
       )}
-      {/* Modal de edición de alimento personal */}
+      {/* Modal de edicion de alimento personal */}
         {showEditFood && editingFood && (
           <div style={{
             position: 'fixed',
@@ -1325,7 +1325,7 @@ const handleLogout = () => {
             display: 'flex',
             alignItems: 'center',
             justifyContent: 'center',
-            zIndex: 1000,
+            zIndex: 2000,
             padding: '20px'
           }}>
             <div style={{
