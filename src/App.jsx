@@ -1640,6 +1640,7 @@ const getDailyMacros = () => {
 					))}
 				  </div>
 				</div>
+				</div>
 			  </div>
 			)}
 
