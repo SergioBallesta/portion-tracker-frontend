@@ -111,45 +111,44 @@ const buttonStyle = (variant = 'primary') => {
   };
 };
 
-  // Grupos de alimentos
-  const foodGroups = {
-        carbohidratos: { 
-          name: 'Carbohidratos', 
-          icon: 'C', 
-          defaultGrams: 30,
-          color: '#3b82f6' // azul
-        },
-        proteinas: { 
-          name: 'Proteínas', 
-          icon: 'P', 
-          defaultGrams: 100,
-          color: '#8b5cf6' // morado
-        },  
-        protegrasa: { 
-          name: 'Protegrasa', 
-          icon: 'PG', 
-          defaultGrams: 30,
-          color: '#ec4899' // rosa
-        },
-        grasas: { 
-          name: 'Grasas', 
-          icon: 'G', 
-          defaultGrams: 10,
-          color: '#10b981' // verde
-        },
-        frutas: { 
-          name: 'Frutas', 
-          icon: 'F', 
-          defaultGrams: 150,
-          color: '#f59e0b' // naranja
-        },
-        lacteos: { 
-          name: 'Lácteos', 
-          icon: 'L', 
-          defaultGrams: 250,
-          color: '#06b6d4' // cyan
-        }
-      };
+const foodGroups = {
+  carbohidratos: { 
+    name: 'Carbohidratos', 
+    icon: '??', 
+    defaultGrams: 30,
+    color: '#3b82f6'
+  },
+  proteinas: { 
+    name: 'Proteinas', 
+    icon: '??', 
+    defaultGrams: 100,
+    color: '#8b5cf6'
+  },  
+  protegrasa: { 
+    name: 'Protegrasa', 
+    icon: '??', 
+    defaultGrams: 30,
+    color: '#ec4899'
+  },
+  grasas: { 
+    name: 'Grasas', 
+    icon: '??', 
+    defaultGrams: 10,
+    color: '#10b981'
+  },
+  frutas: { 
+    name: 'Frutas', 
+    icon: '??', 
+    defaultGrams: 150,
+    color: '#f59e0b'
+  },
+  lacteos: { 
+    name: 'Lacteos', 
+    icon: '??', 
+    defaultGrams: 250,
+    color: '#06b6d4'
+  }
+};
 	  
 	  // Agregar esto al useEffect inicial
 useEffect(() => {
@@ -160,8 +159,6 @@ useEffect(() => {
   document.head.appendChild(link);
 }, []);
 
-// Y cambiar la fontFamily global
-fontFamily: "'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif"
 
   // Verificar autenticacion al cargar
   useEffect(() => {
@@ -1071,10 +1068,9 @@ const getDailyMacros = () => {
                             height: '24px',
                             borderRadius: '50%',
                             background: `${foodGroups[group].color}20`,
-                            color: foodGroups[group].color,
-                            fontSize: '12px',
-                            fontWeight: 'bold',
-                            color: '#374151'
+							fontSize: '12px',
+							fontWeight: 'bold',
+							color: foodGroups[group].color
                           }}>
                             {foodGroups[group].icon}
                           </span>
@@ -1139,8 +1135,8 @@ const getDailyMacros = () => {
     <div style={{
       minHeight: '100vh',
       background: '#f8fafc',
-      fontFamily: 'system-ui, -apple-system, sans-serif'
-    }}>
+		fontFamily: "'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif"    
+		}}>
       {/* Modales */}
       {showEditConsumption && editingConsumption && (
         // Para todos los modales
