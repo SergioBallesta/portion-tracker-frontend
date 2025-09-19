@@ -822,10 +822,10 @@ const getDailyMacros = () => {
         }}>
           {backendStatus === 'connected' ? (
             <span style={{ color: '#059669' }}>
-              ? Conectado a la base de datos
+              Conectado a la base de datos
             </span>
           ) : (
-            <span>? Verificando conexion...</span>
+            <span>Verificando conexion...</span>
           )}
         </div>
 
@@ -1156,7 +1156,6 @@ const getDailyMacros = () => {
 			  justifyContent: 'center',
 			  zIndex: 2000,
 			  padding: '20px',
-			  animation: 'fadeIn 0.3s ease-out'
 			}}>
 			  <div style={{
 				background: 'white',
@@ -1165,7 +1164,6 @@ const getDailyMacros = () => {
 				width: '100%',
 				maxWidth: '500px',
 				boxShadow: '0 20px 60px rgba(0,0,0,0.15)',
-				animation: 'slideUp 0.3s ease-out',
 				border: '1px solid rgba(255,255,255,0.2)'
 			  }}>
             <h3 style={{ fontSize: '18px', fontWeight: '600', marginBottom: '16px', color: '#1f2937' }}>
@@ -1253,7 +1251,6 @@ const getDailyMacros = () => {
 			  justifyContent: 'center',
 			  zIndex: 2000,
 			  padding: '20px',
-			  animation: 'fadeIn 0.3s ease-out'
 			}}>
 			  <div style={{
 				background: 'white',
@@ -1262,7 +1259,6 @@ const getDailyMacros = () => {
 				width: '100%',
 				maxWidth: '500px',
 				boxShadow: '0 20px 60px rgba(0,0,0,0.15)',
-				animation: 'slideUp 0.3s ease-out',
 				border: '1px solid rgba(255,255,255,0.2)'
 			  }}>
             <h3 style={{ fontSize: '18px', fontWeight: '600', marginBottom: '16px', color: '#1f2937' }}>
@@ -1285,7 +1281,7 @@ const getDailyMacros = () => {
 					alignItems: 'center',
 					gap: '4px'
 				  }}>
-					<span style={{ fontSize: '8px' }}>?</span> FatSecret
+					<span style={{ fontSize: '8px' }}></span> FatSecret
 				  </span>
 				)}
             </p>
@@ -1432,7 +1428,6 @@ const getDailyMacros = () => {
 				  justifyContent: 'center',
 				  zIndex: 2000,
 				  padding: '20px',
-				  animation: 'fadeIn 0.3s ease-out'
 				}}>
 				  <div style={{
 					background: 'white',
@@ -1441,7 +1436,6 @@ const getDailyMacros = () => {
 					width: '100%',
 					maxWidth: '500px',
 					boxShadow: '0 20px 60px rgba(0,0,0,0.15)',
-					animation: 'slideUp 0.3s ease-out',
 					border: '1px solid rgba(255,255,255,0.2)'
 				  }}>
               <h3 style={{ fontSize: '18px', fontWeight: '600', marginBottom: '16px', color: '#1f2937' }}>
@@ -1566,7 +1560,6 @@ const getDailyMacros = () => {
 				justifyContent: 'center',
 				zIndex: 2000,
 				padding: '20px',
-				animation: 'fadeIn 0.3s ease-out'
 			  }}>
 				<div style={{
 				  background: 'white',
@@ -1577,7 +1570,6 @@ const getDailyMacros = () => {
 				  maxHeight: '90vh',
 				  overflowY: 'auto',
 				  boxShadow: '0 20px 60px rgba(0,0,0,0.15)',
-				  animation: 'slideUp 0.3s ease-out',
 				  border: '1px solid rgba(255,255,255,0.2)'
 				}}>
 				  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '24px' }}>
@@ -1805,7 +1797,6 @@ const getDailyMacros = () => {
           textAlign: 'center',
           boxShadow: '0 2px 8px rgba(0,0,0,0.05)',
           transition: 'all 0.3s ease',
-          animation: 'fadeIn 0.5s ease-out',
           cursor: 'pointer',
           marginBottom: '16px'
         }}
@@ -2198,7 +2189,6 @@ const getDailyMacros = () => {
 				  justifyContent: 'center',
 				  zIndex: 2000,
 				  padding: '20px',
-				  animation: 'fadeIn 0.3s ease-out'
 				}}>
 				  <div style={{
 					background: 'white',
@@ -2207,7 +2197,6 @@ const getDailyMacros = () => {
 					width: '100%',
 					maxWidth: '500px',
 					boxShadow: '0 20px 60px rgba(0,0,0,0.15)',
-					animation: 'slideUp 0.3s ease-out',
 					border: '1px solid rgba(255,255,255,0.2)'
 				  }}>
               <h3 style={{ fontSize: '18px', fontWeight: '600', marginBottom: '16px', color: '#1f2937' }}>
