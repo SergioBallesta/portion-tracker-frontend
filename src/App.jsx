@@ -618,6 +618,29 @@ const handleLogout = () => {
     return totalCalories;
   };
 
+const getDailyMacros = () => {
+  let totalProtein = 0;
+  let totalCarbs = 0;
+  let totalFat = 0;
+
+  Object.values(consumedFoods).forEach(meal => {
+    Object.values(meal).forEach(foods => {
+      foods.forEach(food => {
+        const grams = food.actualGrams || food.gramsPerPortion || 100;
+        totalProtein += (food.protein || 0) * grams / 100;
+        totalCarbs += (food.carbs || 0) * grams / 100;
+        totalFat += (food.fat || 0) * grams / 100;
+      });
+    });
+  });
+
+  return {
+    protein: Math.round(totalProtein),
+    carbs: Math.round(totalCarbs),
+    fat: Math.round(totalFat)
+  };
+};
+
   const startEditingMeal = (index) => {
     setIsEditingMeal(index);
     setTempMealName(mealNames[index]);
@@ -997,7 +1020,6 @@ const handleLogout = () => {
                 </div>
               ))}
             </div>
-            </div>
 
             {/* Tabla de porciones */}
             <div style={{ marginBottom: '32px' }}>
@@ -1048,7 +1070,7 @@ const handleLogout = () => {
                             width: '24px',
                             height: '24px',
                             borderRadius: '50%',
-                            bbackground: foodGroups[group].color + '20', // 20 es opacidad
+                            background: `${foodGroups[group].color}20`,
                             color: foodGroups[group].color,
                             fontSize: '12px',
                             fontWeight: 'bold',
@@ -1532,92 +1554,98 @@ const handleLogout = () => {
         )}
       {/* Modal de estadisticas */}
       {showStats && (
-// Para todos los modales
-			<div style={{
-			  position: 'fixed',
-			  top: 0,
-			  left: 0,
-			  right: 0,
-			  bottom: 0,
-			  background: 'rgba(0, 0, 0, 0.4)',
-			  backdropFilter: 'blur(8px)',
-			  WebkitBackdropFilter: 'blur(8px)',
-			  display: 'flex',
-			  alignItems: 'center',
-			  justifyContent: 'center',
-			  zIndex: 2000,
-			  padding: '20px',
-			  animation: 'fadeIn 0.3s ease-out'
-			}}>
 			  <div style={{
-				background: 'white',
-				padding: '32px',
-				borderRadius: '20px',
-				width: '100%',
-				maxWidth: '500px',
-				boxShadow: '0 20px 60px rgba(0,0,0,0.15)',
-				animation: 'slideUp 0.3s ease-out',
-				border: '1px solid rgba(255,255,255,0.2)'
+				position: 'fixed',
+				top: 0,
+				left: 0,
+				right: 0,
+				bottom: 0,
+				background: 'rgba(0, 0, 0, 0.4)',
+				backdropFilter: 'blur(8px)',
+				WebkitBackdropFilter: 'blur(8px)',
+				display: 'flex',
+				alignItems: 'center',
+				justifyContent: 'center',
+				zIndex: 2000,
+				padding: '20px',
+				animation: 'fadeIn 0.3s ease-out'
 			  }}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '24px' }}>
-              <h3 style={{ fontSize: '18px', fontWeight: '600', color: '#1f2937', margin: 0 }}>
-                Estadisticas Diarias
-              </h3>
-              <button 
-                onClick={() => setShowStats(false)}
-                style={{
-                  background: 'none',
-                  border: 'none',
-                  color: '#6b7280',
-                  cursor: 'pointer',
-                  padding: '4px'
-                }}
-              >
-                <X size={20} />
-              </button>
-            </div>
-				<div style={{ 
-				  fontSize: '48px', 
-				  fontWeight: '800', 
-				  background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
-				  WebkitBackgroundClip: 'text',
-				  WebkitTextFillColor: 'transparent',
-				  marginBottom: '8px'
+				<div style={{
+				  background: 'white',
+				  padding: '32px',
+				  borderRadius: '20px',
+				  width: '100%',
+				  maxWidth: '600px',
+				  maxHeight: '90vh',
+				  overflowY: 'auto',
+				  boxShadow: '0 20px 60px rgba(0,0,0,0.15)',
+				  animation: 'slideUp 0.3s ease-out',
+				  border: '1px solid rgba(255,255,255,0.2)'
 				}}>
-				  {getDailyCalories()}
-				</div>
-				<div style={{ 
-				  fontSize: '14px', 
-				  color: '#64748b',
-				  fontWeight: '500',
-				  textTransform: 'uppercase',
-				  letterSpacing: '1px'
-				}}>
-				  Calorias Totales
-				</div>
-            </div>
+				  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '24px' }}>
+					<h3 style={{ fontSize: '20px', fontWeight: '700', color: '#1f2937', margin: 0 }}>
+					  ?? Estadisticas Diarias
+					</h3>
+					<button 
+					  onClick={() => setShowStats(false)}
+					  style={{
+						background: 'none',
+						border: 'none',
+						color: '#6b7280',
+						cursor: 'pointer',
+						padding: '4px'
+					  }}
+					>
+					  <X size={20} />
+					</button>
+				  </div>
+				  
+				  <div style={{ textAlign: 'center', marginBottom: '32px' }}>
+					<div style={{ 
+					  fontSize: '56px', 
+					  fontWeight: '800', 
+					  background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
+					  WebkitBackgroundClip: 'text',
+					  WebkitTextFillColor: 'transparent',
+					  marginBottom: '8px'
+					}}>
+					  {getDailyCalories()}
+					</div>
+					<div style={{ 
+					  fontSize: '14px', 
+					  color: '#64748b',
+					  fontWeight: '500',
+					  textTransform: 'uppercase',
+					  letterSpacing: '1px'
+					}}>
+					  Calorias Totales
+					</div>
+				  </div>
 
-            <div style={{ marginBottom: '24px' }}>
-              <h4 style={{ fontSize: '16px', fontWeight: '600', marginBottom: '12px', color: '#1f2937' }}>
-                Calorias por Comida
-              </h4>
-              {mealNames.map((meal, index) => (
-                <div key={index} style={{
-                  display: 'flex',
-                  justifyContent: 'space-between',
-                  alignItems: 'center',
-                  padding: '8px 0',
-                  borderBottom: '1px solid #e5e7eb'
-                }}>
-                  <span style={{ color: '#374151' }}>{meal}</span>
-                  <span style={{ fontWeight: '600', color: '#1f2937' }}>
-                    {getMealCalories(index)} kcal
-                  </span>
-                </div>
-              ))}
-            </div>
-          </div>
-      )}
+				  <div style={{ marginBottom: '24px' }}>
+					<h4 style={{ fontSize: '16px', fontWeight: '600', marginBottom: '12px', color: '#1f2937' }}>
+					  Calorias por Comida
+					</h4>
+					{mealNames.map((meal, index) => (
+					  <div key={index} style={{
+						display: 'flex',
+						justifyContent: 'space-between',
+						alignItems: 'center',
+						padding: '12px',
+						marginBottom: '8px',
+						background: '#f8fafc',
+						borderRadius: '8px'
+					  }}>
+						<span style={{ color: '#374151', fontWeight: '500' }}>{meal}</span>
+						<span style={{ fontWeight: '700', color: '#1f2937', fontSize: '18px' }}>
+						  {getMealCalories(index)} kcal
+						</span>
+					  </div>
+					))}
+				  </div>
+				</div>
+			  </div>
+			)}
 
       {/* Header */}
      <div style={{
@@ -2337,11 +2365,31 @@ const handleLogout = () => {
         </div>
 
       <style>{`
-        @keyframes spin {
-          0% { transform: rotate(0deg); }
-          100% { transform: rotate(360deg); }
-        }
-      `}</style>
+		  @keyframes spin {
+			0% { transform: rotate(0deg); }
+			100% { transform: rotate(360deg); }
+		  }
+		  
+		  @keyframes fadeIn {
+			from { opacity: 0; transform: translateY(10px); }
+			to { opacity: 1; transform: translateY(0); }
+		  }
+		  
+		  @keyframes slideUp {
+			from { transform: translateY(20px); opacity: 0; }
+			to { transform: translateY(0); opacity: 1; }
+		  }
+		  
+		  @keyframes shimmer {
+			0% { background-position: -200% center; }
+			100% { background-position: 200% center; }
+		  }
+		  
+		  @keyframes pulse {
+			0%, 100% { transform: scale(1); }
+			50% { transform: scale(1.05); }
+		  }
+		`}</style>
     </div>
   );
 }
