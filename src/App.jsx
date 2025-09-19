@@ -66,6 +66,50 @@ const PortionTracker = () => {
     'Content-Type': 'application/json',
     'Authorization': `Bearer ${getAuthToken()}`
   });
+  
+  // Funcion helper para estilos de boton
+const buttonStyle = (variant = 'primary') => {
+  const styles = {
+    primary: {
+      background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
+      color: 'white',
+      boxShadow: '0 4px 15px rgba(102, 126, 234, 0.3)'
+    },
+    secondary: {
+      background: 'white',
+      color: '#667eea',
+      border: '2px solid #667eea',
+      boxShadow: '0 2px 10px rgba(0,0,0,0.05)'
+    },
+    danger: {
+      background: 'linear-gradient(135deg, #ef4444 0%, #dc2626 100%)',
+      color: 'white',
+      boxShadow: '0 4px 15px rgba(239, 68, 68, 0.3)'
+    }
+  };
+
+  return {
+    ...styles[variant],
+    padding: '12px 24px',
+    borderRadius: '12px',
+    fontSize: '14px',
+    fontWeight: '600',
+    cursor: 'pointer',
+    transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
+    position: 'relative',
+    overflow: 'hidden',
+    border: styles[variant].border || 'none',
+    transform: 'translateY(0)',
+    ':hover': {
+      transform: 'translateY(-2px)',
+      boxShadow: '0 6px 20px rgba(102, 126, 234, 0.4)'
+    },
+    ':active': {
+      transform: 'translateY(0)',
+      boxShadow: '0 2px 10px rgba(102, 126, 234, 0.3)'
+    }
+  };
+};
 
   // Grupos de alimentos
   const foodGroups = {
@@ -106,6 +150,18 @@ const PortionTracker = () => {
           color: '#06b6d4' // cyan
         }
       };
+	  
+	  // Agregar esto al useEffect inicial
+useEffect(() => {
+  // Cargar Google Fonts
+  const link = document.createElement('link');
+  link.href = 'https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap';
+  link.rel = 'stylesheet';
+  document.head.appendChild(link);
+}, []);
+
+// Y cambiar la fontFamily global
+fontFamily: "'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif"
 
   // Verificar autenticacion al cargar
   useEffect(() => {
@@ -1065,27 +1121,33 @@ const handleLogout = () => {
     }}>
       {/* Modales */}
       {showEditConsumption && editingConsumption && (
-        <div style={{
-          position: 'fixed',
-          top: 0,
-          left: 0,
-          right: 0,
-          bottom: 0,
-          background: 'rgba(0, 0, 0, 0.5)',
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'center',
-          zIndex: 1000,
-          padding: '20px'
-        }}>
-          <div style={{
-            background: 'white',
-            padding: '24px',
-            borderRadius: '12px',
-            width: '100%',
-            maxWidth: '400px',
-            boxShadow: '0 10px 25px rgba(0,0,0,0.1)'
-          }}>
+        // Para todos los modales
+			<div style={{
+			  position: 'fixed',
+			  top: 0,
+			  left: 0,
+			  right: 0,
+			  bottom: 0,
+			  background: 'rgba(0, 0, 0, 0.4)',
+			  backdropFilter: 'blur(8px)',
+			  WebkitBackdropFilter: 'blur(8px)',
+			  display: 'flex',
+			  alignItems: 'center',
+			  justifyContent: 'center',
+			  zIndex: 2000,
+			  padding: '20px',
+			  animation: 'fadeIn 0.3s ease-out'
+			}}>
+			  <div style={{
+				background: 'white',
+				padding: '32px',
+				borderRadius: '20px',
+				width: '100%',
+				maxWidth: '500px',
+				boxShadow: '0 20px 60px rgba(0,0,0,0.15)',
+				animation: 'slideUp 0.3s ease-out',
+				border: '1px solid rgba(255,255,255,0.2)'
+			  }}>
             <h3 style={{ fontSize: '18px', fontWeight: '600', marginBottom: '16px', color: '#1f2937' }}>
               Editar Cantidad Consumida
             </h3>
@@ -1156,36 +1218,56 @@ const handleLogout = () => {
 
       {/* Modal de categorizacion */}
       {showCategoryModal && selectedFood && (
-        <div style={{
-          position: 'fixed',
-          top: 0,
-          left: 0,
-          right: 0,
-          bottom: 0,
-          background: 'rgba(0, 0, 0, 0.5)',
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'center',
-          zIndex: 1000,
-          padding: '20px'
-        }}>
-          <div style={{
-            background: 'white',
-            padding: '24px',
-            borderRadius: '12px',
-            width: '100%',
-            maxWidth: '500px',
-            boxShadow: '0 10px 25px rgba(0,0,0,0.1)',
-            maxHeight: '90vh',
-            overflowY: 'auto'
-          }}>
+        // Para todos los modales
+			<div style={{
+			  position: 'fixed',
+			  top: 0,
+			  left: 0,
+			  right: 0,
+			  bottom: 0,
+			  background: 'rgba(0, 0, 0, 0.4)',
+			  backdropFilter: 'blur(8px)',
+			  WebkitBackdropFilter: 'blur(8px)',
+			  display: 'flex',
+			  alignItems: 'center',
+			  justifyContent: 'center',
+			  zIndex: 2000,
+			  padding: '20px',
+			  animation: 'fadeIn 0.3s ease-out'
+			}}>
+			  <div style={{
+				background: 'white',
+				padding: '32px',
+				borderRadius: '20px',
+				width: '100%',
+				maxWidth: '500px',
+				boxShadow: '0 20px 60px rgba(0,0,0,0.15)',
+				animation: 'slideUp 0.3s ease-out',
+				border: '1px solid rgba(255,255,255,0.2)'
+			  }}>
             <h3 style={{ fontSize: '18px', fontWeight: '600', marginBottom: '16px', color: '#1f2937' }}>
               Categorizar Alimento
             </h3>
             <p style={{ fontSize: '14px', color: '#6b7280', marginBottom: '16px' }}>
               <strong>{selectedFood.name}</strong>
               {selectedFood.brand && <span> - {selectedFood.brand}</span>}
-              {selectedFood.isFromAPI && <span style={{ color: '#22c55e', fontSize: '12px' }}> (FatSecret)</span>}
+              {selectedFood.isFromAPI && (
+				  <span style={{
+					background: 'linear-gradient(135deg, #10b981 0%, #059669 100%)',
+					color: 'white',
+					fontSize: '10px',
+					padding: '2px 8px',
+					borderRadius: '999px',
+					fontWeight: '600',
+					marginLeft: '8px',
+					boxShadow: '0 2px 4px rgba(16, 185, 129, 0.2)',
+					display: 'inline-flex',
+					alignItems: 'center',
+					gap: '4px'
+				  }}>
+					<span style={{ fontSize: '8px' }}>?</span> FatSecret
+				  </span>
+				)}
             </p>
             
             {/* Info nutricional */}
@@ -1315,27 +1397,33 @@ const handleLogout = () => {
       )}
       {/* Modal de edicion de alimento personal */}
         {showEditFood && editingFood && (
-          <div style={{
-            position: 'fixed',
-            top: 0,
-            left: 0,
-            right: 0,
-            bottom: 0,
-            background: 'rgba(0, 0, 0, 0.5)',
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            zIndex: 2000,
-            padding: '20px'
-          }}>
-            <div style={{
-              background: 'white',
-              padding: '24px',
-              borderRadius: '12px',
-              width: '100%',
-              maxWidth: '400px',
-              boxShadow: '0 10px 25px rgba(0,0,0,0.1)'
-            }}>
+          // Para todos los modales
+				<div style={{
+				  position: 'fixed',
+				  top: 0,
+				  left: 0,
+				  right: 0,
+				  bottom: 0,
+				  background: 'rgba(0, 0, 0, 0.4)',
+				  backdropFilter: 'blur(8px)',
+				  WebkitBackdropFilter: 'blur(8px)',
+				  display: 'flex',
+				  alignItems: 'center',
+				  justifyContent: 'center',
+				  zIndex: 2000,
+				  padding: '20px',
+				  animation: 'fadeIn 0.3s ease-out'
+				}}>
+				  <div style={{
+					background: 'white',
+					padding: '32px',
+					borderRadius: '20px',
+					width: '100%',
+					maxWidth: '500px',
+					boxShadow: '0 20px 60px rgba(0,0,0,0.15)',
+					animation: 'slideUp 0.3s ease-out',
+					border: '1px solid rgba(255,255,255,0.2)'
+				  }}>
               <h3 style={{ fontSize: '18px', fontWeight: '600', marginBottom: '16px', color: '#1f2937' }}>
                 Editar Alimento
               </h3>
@@ -1444,29 +1532,33 @@ const handleLogout = () => {
         )}
       {/* Modal de estadisticas */}
       {showStats && (
-        <div style={{
-          position: 'fixed',
-          top: 0,
-          left: 0,
-          right: 0,
-          bottom: 0,
-          background: 'rgba(0, 0, 0, 0.5)',
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'center',
-          zIndex: 1000,
-          padding: '20px'
-        }}>
-          <div style={{
-            background: 'white',
-            padding: '24px',
-            borderRadius: '12px',
-            width: '100%',
-            maxWidth: '500px',
-            boxShadow: '0 10px 25px rgba(0,0,0,0.1)',
-            maxHeight: '90vh',
-            overflowY: 'auto'
-          }}>
+// Para todos los modales
+			<div style={{
+			  position: 'fixed',
+			  top: 0,
+			  left: 0,
+			  right: 0,
+			  bottom: 0,
+			  background: 'rgba(0, 0, 0, 0.4)',
+			  backdropFilter: 'blur(8px)',
+			  WebkitBackdropFilter: 'blur(8px)',
+			  display: 'flex',
+			  alignItems: 'center',
+			  justifyContent: 'center',
+			  zIndex: 2000,
+			  padding: '20px',
+			  animation: 'fadeIn 0.3s ease-out'
+			}}>
+			  <div style={{
+				background: 'white',
+				padding: '32px',
+				borderRadius: '20px',
+				width: '100%',
+				maxWidth: '500px',
+				boxShadow: '0 20px 60px rgba(0,0,0,0.15)',
+				animation: 'slideUp 0.3s ease-out',
+				border: '1px solid rgba(255,255,255,0.2)'
+			  }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '24px' }}>
               <h3 style={{ fontSize: '18px', fontWeight: '600', color: '#1f2937', margin: 0 }}>
                 Estadisticas Diarias
@@ -1484,14 +1576,25 @@ const handleLogout = () => {
                 <X size={20} />
               </button>
             </div>
-            
-            <div style={{ textAlign: 'center', marginBottom: '24px' }}>
-              <div style={{ fontSize: '36px', fontWeight: 'bold', color: '#1f2937' }}>
-                {getDailyCalories()}
-              </div>
-              <div style={{ fontSize: '14px', color: '#6b7280' }}>
-                Calorias Totales
-              </div>
+				<div style={{ 
+				  fontSize: '48px', 
+				  fontWeight: '800', 
+				  background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
+				  WebkitBackgroundClip: 'text',
+				  WebkitTextFillColor: 'transparent',
+				  marginBottom: '8px'
+				}}>
+				  {getDailyCalories()}
+				</div>
+				<div style={{ 
+				  fontSize: '14px', 
+				  color: '#64748b',
+				  fontWeight: '500',
+				  textTransform: 'uppercase',
+				  letterSpacing: '1px'
+				}}>
+				  Calorias Totales
+				</div>
             </div>
 
             <div style={{ marginBottom: '24px' }}>
@@ -1514,16 +1617,27 @@ const handleLogout = () => {
               ))}
             </div>
           </div>
-        </div>
       )}
 
       {/* Header */}
-      <div style={{
-        background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
-        color: 'white',
-        padding: '16px 20px',
-        boxShadow: '0 2px 4px rgba(0,0,0,0.1)'
-      }}>
+     <div style={{
+		  background: 'rgba(255, 255, 255, 0.1)',
+		  backdropFilter: 'blur(20px)',
+		  WebkitBackdropFilter: 'blur(20px)',
+		  borderBottom: '1px solid rgba(255, 255, 255, 0.2)',
+		  position: 'sticky',
+		  top: 0,
+		  zIndex: 100,
+		  padding: '16px 20px',
+		  boxShadow: '0 4px 30px rgba(0,0,0,0.1)'
+		}}>
+		  {/* Gradiente de fondo sutil */}
+		  <div style={{
+			position: 'absolute',
+			inset: 0,
+			background: 'linear-gradient(135deg, #667eeacc 0%, #764ba2cc 100%)',
+			zIndex: -1
+		  }} />
         <div style={{ maxWidth: '1200px', margin: '0 auto' }}>
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '12px' }}>
             <h1 style={{ fontSize: '24px', fontWeight: 'bold', margin: 0 }}>
@@ -1655,102 +1769,111 @@ const handleLogout = () => {
       )}
 
       <div style={{ maxWidth: '1200px', margin: '0 auto', padding: '20px' }}>
-        {/* Resumen diario */}
-        <div style={{
-          background: 'white',
+      {/* Resumen diario */}
+      <div
+        style={{
+          background: 'linear-gradient(135deg, #f8fafc 0%, #f1f5f9 100%)',
+          border: '1px solid #e2e8f0',
           borderRadius: '12px',
-          padding: '20px',
-          marginBottom: '20px',
-          boxShadow: '0 1px 3px rgba(0,0,0,0.1)'
-        }}>
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px' }}>
-            <h2 style={{ fontSize: '18px', fontWeight: '600', color: '#1f2937', margin: 0 }}>
-              Resumen Diario
-            </h2>
-            <button
-              onClick={() => setShowPersonalFoods(true)}
+          padding: '16px',
+          textAlign: 'center',
+          boxShadow: '0 2px 8px rgba(0,0,0,0.05)',
+          transition: 'all 0.3s ease',
+          animation: 'fadeIn 0.5s ease-out',
+          cursor: 'pointer',
+          marginBottom: '16px'
+        }}
+        onClick={() => setShowPersonalFoods(true)}
+        onMouseEnter={(e) => {
+          e.currentTarget.style.transform = 'scale(1.05)';
+        }}
+        onMouseLeave={(e) => {
+          e.currentTarget.style.transform = 'scale(1)';
+        }}
+      >
+        Mis Alimentos ({Object.keys(personalFoods).length})
+      </div>
+        
+      <div style={{ 
+        display: 'grid', 
+        gridTemplateColumns: 'repeat(auto-fit, minmax(160px, 1fr))', 
+        gap: '12px' 
+      }}>
+        {Object.keys(foodGroups).map(group => {
+          const consumed = getTotalConsumedPortions(group);
+          const total = getTotalPlannedPortions(group);
+          const percentage = total > 0 ? (consumed / total) * 100 : 0;
+          
+          return (
+            <div
+              key={group}
               style={{
-                background: '#2563eb',
-                color: 'white',
-                border: 'none',
-                padding: '8px 12px',
-                borderRadius: '6px',
-                cursor: 'pointer',
-                fontSize: '12px',
-                display: 'flex',
-                alignItems: 'center',
-                gap: '4px'
+                background: '#f8fafc',
+                border: '1px solid #e2e8f0',
+                borderRadius: '8px',
+                padding: '12px',
+                textAlign: 'center'
               }}
             >
-              Mis Alimentos ({Object.keys(personalFoods).length})
-            </button>
-          </div>
-          
-          <div style={{ 
-            display: 'grid', 
-            gridTemplateColumns: 'repeat(auto-fit, minmax(160px, 1fr))', 
-            gap: '12px' 
-          }}>
-            {Object.keys(foodGroups).map(group => {
-              const consumed = getTotalConsumedPortions(group);
-              const total = getTotalPlannedPortions(group);
-              const percentage = total > 0 ? (consumed / total) * 100 : 0;
-              
-              return (
-                <div
-                  key={group}
-                  style={{
-                    background: '#f8fafc',
-                    border: '1px solid #e2e8f0',
-                    borderRadius: '8px',
-                    padding: '12px',
-                    textAlign: 'center'
-                  }}
-                >
-                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', marginBottom: '8px' }}>
-                    <span style={{
-                      display: 'inline-flex',
-                      alignItems: 'center',
-                      justifyContent: 'center',
-                      width: '20px',
-                      height: '20px',
-                      borderRadius: '50%',
-                      background: '#e5e7eb',
-                      fontSize: '10px',
-                      fontWeight: 'bold',
-                      color: '#374151',
-                      marginRight: '6px'
-                    }}>
-                      {foodGroups[group].icon}
-                    </span>
-                    <span style={{ fontSize: '12px', fontWeight: '500', color: '#374151' }}>
-                      {foodGroups[group].name}
-                    </span>
-                  </div>
-                  <div style={{ fontSize: '16px', fontWeight: '600', color: '#1f2937', marginBottom: '4px' }}>
-                    {consumed}/{total}
-                  </div>
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', marginBottom: '8px' }}>
+                <span style={{
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  width: '20px',
+                  height: '20px',
+                  borderRadius: '50%',
+                  background: '#e5e7eb',
+                  fontSize: '10px',
+                  fontWeight: 'bold',
+                  color: '#374151',
+                  marginRight: '6px'
+                }}>
+                  {foodGroups[group].icon}
+                </span>
+                <span style={{ fontSize: '12px', fontWeight: '500', color: '#374151' }}>
+                  {foodGroups[group].name}
+                </span>
+              </div>
+              <div style={{ fontSize: '16px', fontWeight: '600', color: '#1f2937', marginBottom: '4px' }}>
+                {consumed}/{total}
+              </div>
+              {/* Barra de progreso */}
+              <div style={{
+                width: '100%',
+                height: '8px',
+                background: 'linear-gradient(90deg, #e5e7eb 0%, #f3f4f6 100%)',
+                borderRadius: '999px',
+                overflow: 'hidden',
+                position: 'relative'
+              }}>
+                <div style={{
+                  width: `${Math.min(percentage, 100)}%`,
+                  height: '100%',
+                  background: percentage >= 100 
+                    ? 'linear-gradient(90deg, #10b981 0%, #059669 100%)' 
+                    : `linear-gradient(90deg, ${foodGroups[group].color} 0%, ${foodGroups[group].color}dd 100%)`,
+                  transition: 'width 0.5s cubic-bezier(0.4, 0, 0.2, 1)',
+                  borderRadius: '999px',
+                  position: 'relative',
+                  overflow: 'hidden'
+                }}>
+                  {/* Efecto de brillo animado */}
                   <div style={{
-                    width: '100%',
-                    height: '4px',
-                    background: '#e5e7eb',
-                    borderRadius: '2px',
-                    overflow: 'hidden'
-                  }}>
-                    <div 
-                      style={{
-                        width: `${Math.min(percentage, 100)}%`,
-                        height: '100%',
-                        background: percentage >= 100 ? '#059669' : '#2563eb',
-                        transition: 'width 0.3s ease'
-                      }}
-                    />
-                  </div>
+                    position: 'absolute',
+                    top: 0,
+                    left: 0,
+                    right: 0,
+                    bottom: 0,
+                    background: 'linear-gradient(90deg, transparent, rgba(255,255,255,0.3), transparent)',
+                    animation: 'shimmer 2s infinite'
+                  }} />
                 </div>
-              );
-            })}
-          </div>
-        </div>
+              </div>
+            </div>
+          );
+        })}
+      </div>
                 
         {/* Seccion de comida actual */}
         <div style={{
@@ -2034,29 +2157,33 @@ const handleLogout = () => {
 
         {/* Modal de alimentos personales */}
         {showPersonalFoods && (
-          <div style={{
-            position: 'fixed',
-            top: 0,
-            left: 0,
-            right: 0,
-            bottom: 0,
-            background: 'rgba(0, 0, 0, 0.5)',
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            zIndex: 1000,
-            padding: '20px'
-          }}>
-            <div style={{
-              background: 'white',
-              padding: '24px',
-              borderRadius: '12px',
-              width: '100%',
-              maxWidth: '600px',
-              boxShadow: '0 10px 25px rgba(0,0,0,0.1)',
-              maxHeight: '90vh',
-              overflowY: 'auto'
-            }}>
+          // Para todos los modales
+				<div style={{
+				  position: 'fixed',
+				  top: 0,
+				  left: 0,
+				  right: 0,
+				  bottom: 0,
+				  background: 'rgba(0, 0, 0, 0.4)',
+				  backdropFilter: 'blur(8px)',
+				  WebkitBackdropFilter: 'blur(8px)',
+				  display: 'flex',
+				  alignItems: 'center',
+				  justifyContent: 'center',
+				  zIndex: 2000,
+				  padding: '20px',
+				  animation: 'fadeIn 0.3s ease-out'
+				}}>
+				  <div style={{
+					background: 'white',
+					padding: '32px',
+					borderRadius: '20px',
+					width: '100%',
+					maxWidth: '500px',
+					boxShadow: '0 20px 60px rgba(0,0,0,0.15)',
+					animation: 'slideUp 0.3s ease-out',
+					border: '1px solid rgba(255,255,255,0.2)'
+				  }}>
               <h3 style={{ fontSize: '18px', fontWeight: '600', marginBottom: '16px', color: '#1f2937' }}>
                 Mis Alimentos
               </h3>
@@ -2207,7 +2334,7 @@ const handleLogout = () => {
             <strong>Cuenta Personal:</strong> Tus datos se guardan automaticamente en la nube. Los alimentos consumidos se reinician cada dia a las 00:00.
           </div>
         </div>
-      </div>
+        </div>
 
       <style>{`
         @keyframes spin {
@@ -2217,6 +2344,6 @@ const handleLogout = () => {
       `}</style>
     </div>
   );
-};
+}
 
 export default PortionTracker;
